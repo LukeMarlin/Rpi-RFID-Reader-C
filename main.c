@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <sys/time.h>
 #include <wiringPi.h>
+#include <time.h>
+#include <errno.h>
 #include "CardReader.c"
 #include "main.h"
 #include "pins.c"
@@ -9,8 +11,11 @@
 #define UNUSED_PIN -1
 #define PINS_COUNT 26
 #define FRAME_SIZE 26
-#define READERS_COUNT 8
+#define READERS_COUNT_MAX 8
+#define BIT_TIMEOUT 4000000
 
+//debug
+int counter = 0;
 
 int pins[PINS_COUNT] = {PIN_0, 
 		PIN_1, 
@@ -40,45 +45,36 @@ int pins[PINS_COUNT] = {PIN_0,
 		PIN_25};
 
 int values[PINS_COUNT] = {};
+int READERS_COUNT = 0;
+
 CardReader** readers;
-CardReader _readers;
+CardReader* _readers;
 
 #include "callbacks.c"
 
 void initProgram(){
 	wiringPiSetupGpio();
 	readers = (CardReader**)malloc(sizeof(CardReader*)*PINS_COUNT);	
-	_readers = malloc(sizeof(CardReader)*READERS_COUNT;
 }
 
 void initReaders(){
-_readers[0] =  createCardReader("Lecteur", PIN_23, PIN_24);
-
+	createCardReader("Lecteur", PIN_23, PIN_24, &callback23, &callback24);
 }
 
 int main(void) {
 	
 	initProgram();
+	initReaders();
 	
-	// Set pin to output in case it's not
-	pinMode(PIN_23, INPUT);
-	pinMode(PIN_24, INPUT);
-	pullUpDnControl(PIN_23, PUD_UP);
-	pullUpDnControl(PIN_24, PUD_UP);
 	
-	// Bind to interrupt
-	wiringPiISR(PIN_23, INT_EDGE_FALLING, &callback23);
-	wiringPiISR(PIN_24, INT_EDGE_FALLING, &callback24);
-
-	printf("PIN : %d, Readers[PIN]->GPIO_0: %d\n", PIN_23, readers[PIN_23]->GPIO_0);	
-
+	
 	// Waste time but not CPU
 	for (;;) {
 		sleep(1);
 	}
 }
 
-CardReader createCardReader(char* pname,int pGPIO_0, int pGPIO_1){
+void createCardReader(char* pname, int pGPIO_0, int pGPIO_1, void(*callback0), void(*callback1)){
 	CardReader temp;
 	
 	temp.name = pname;
@@ -91,11 +87,25 @@ CardReader createCardReader(char* pname,int pGPIO_0, int pGPIO_1){
 	readers[pGPIO_1] = &temp;
 	values[pGPIO_0] = 0;
 	values[pGPIO_1] = 1;
+	
+	
+	// Set pin to input in case it's not
+	pinMode(pGPIO_0, INPUT);
+	pinMode(pGPIO_1, INPUT);
+	
+	pullUpDnControl(pGPIO_0, PUD_UP);
+	pullUpDnControl(pGPIO_1, PUD_UP);
 
-	return temp;
+	// Bind to interrupt
+	wiringPiISR(PIN_23, INT_EDGE_FALLING, callback0);
+	wiringPiISR(PIN_24, INT_EDGE_FALLING, callback1);
+	
+	updateArrays(temp);
 
 }
 
 void updateArrays(CardReader reader){
-	realloc(_readers
+	_readers = realloc(_readers, sizeof(CardReader)*(READERS_COUNT+1));
+	_readers[READERS_COUNT] = reader;
+	READERS_COUNT++;
 }

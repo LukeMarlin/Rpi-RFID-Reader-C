@@ -1,15 +1,81 @@
 #include "pins.c"
+#include <pthread.h>
 
 void handler(int PIN_ID){
+	
 	CardReader* reader = readers[PIN_ID];
-	printf("PIN: %d, Readers[PIN]->GPIO_0: %d\n", PIN_23, readers[PIN_23]->GPIO_0);
-	fflush(stdin);
-	//reader->tag[0] = '0'; //values[PIN_ID];
-	/*reader->tag[reader->bitCount++] = values[PIN_ID];
-	if(reader->bitCount == FRAME_SIZE){
-		printf("[%s]: %s\n",reader->name, reader->tag);
-		reader->bitCount = 0;
-	}*/
+	pthread_mutex_lock(&reader->lockObj);
+
+	struct timespec newTime;
+	if(clock_gettime(CLOCK_REALTIME, &newTime) != 0)
+		printf("Error N° : %d\n", errno);
+
+	
+	//reader->bitCount++;
+	
+	//Buffer empty, start of frame
+	printf("size = %d\n", reader->bitCount);
+	if(reader->bitCount == 0){
+		reader->lastUpdated = newTime;
+		//printf("%d, %d \n", reader->lastUpdated.tv_sec, newTime.tv_sec);
+		reader->bitCount++;
+	}
+	//Buffer not empty
+	else{ 
+		//Last bit is outdated = corrupted buffer
+		if(isTimedOut(reader->lastUpdated, newTime)){
+			//printf("%d : Timed out !\n", ++counter);
+			printf("Line %d : buffer size %d \n", ++counter,reader->bitCount);
+			reader->bitCount = 0;
+		}
+		//End of frame
+		else if(++reader->bitCount == FRAME_SIZE) { 
+			printf("Line %d : Done !\n", ++counter);
+			reader->bitCount = 0;
+		}
+		//Add bit
+		else{
+			reader->bitCount++;
+			reader->lastUpdated = newTime;
+		}
+	}
+
+	pthread_mutex_unlock(&reader->lockObj);
+	//printf("PIN: %d, Readers[%d]: %d\n", PIN_ID, PIN_ID, values[PIN_ID]);
+	//fflush(stdin);
+	
+}
+
+int isTimedOut(struct timespec start, struct timespec end){
+	long int secDelta = end.tv_sec - start.tv_sec;
+	long int nsecDelta = end.tv_nsec - start.tv_nsec;
+	
+	if(secDelta == 0) 
+	{
+		if(nsecDelta < BIT_TIMEOUT  )
+		{
+			 return 0;
+		}
+		else
+		{
+			printf("Timed out in same second\n");
+			return 1;
+		}
+	}
+	else
+	{
+		if(((1000000000 - start.tv_nsec) + end.tv_nsec) < BIT_TIMEOUT  ) 
+		{
+			return 0;
+		}
+		else
+		{
+			printf("Timed out in different second, nstart : %ld, nstop : %ld, nsecDela : %ld \n", start.tv_nsec, end.tv_nsec, nsecDelta );
+			printf("secDelta : %ld, start tvSec : %ld, end tvSec : %ld \n ", secDelta, start.tv_sec, end.tv_sec );
+			return 1;
+		}
+	}
+	return 1;
 }
 
 void callback0(){handler(PIN_0);}
