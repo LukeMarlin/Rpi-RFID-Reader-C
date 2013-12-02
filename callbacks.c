@@ -1,30 +1,28 @@
-#include "pins.c"
 #include <pthread.h>
 
 void handler(int PIN_ID){
 	
+	//Getting the reader associated to the PIN that raised the event
 	CardReader* reader = readers[PIN_ID];
+
+	//Executing the function atomically
 	pthread_mutex_lock(&reader->lockObj);
 
+	//Getting current time
 	struct timespec newTime;
 	if(clock_gettime(CLOCK_REALTIME, &newTime) != 0)
 		printf("Error N° : %d\n", errno);
 
 	
-	//reader->bitCount++;
-	
 	//Buffer empty, start of frame
-	printf("size = %d\n", reader->bitCount);
 	if(reader->bitCount == 0){
 		reader->lastUpdated = newTime;
-		//printf("%d, %d \n", reader->lastUpdated.tv_sec, newTime.tv_sec);
 		reader->bitCount++;
 	}
 	//Buffer not empty
 	else{ 
 		//Last bit is outdated = corrupted buffer
 		if(isTimedOut(reader->lastUpdated, newTime)){
-			//printf("%d : Timed out !\n", ++counter);
 			printf("Line %d : buffer size %d \n", ++counter,reader->bitCount);
 			reader->bitCount = 0;
 		}
@@ -40,12 +38,11 @@ void handler(int PIN_ID){
 		}
 	}
 
-	pthread_mutex_unlock(&reader->lockObj);
-	//printf("PIN: %d, Readers[%d]: %d\n", PIN_ID, PIN_ID, values[PIN_ID]);
-	//fflush(stdin);
-	
+	pthread_mutex_unlock(&reader->lockObj);	
 }
 
+
+//Return wether the delay between last bit and previous bit is superior to BIT_TIMEOUT
 int isTimedOut(struct timespec start, struct timespec end){
 	long int secDelta = end.tv_sec - start.tv_sec;
 	long int nsecDelta = end.tv_nsec - start.tv_nsec;

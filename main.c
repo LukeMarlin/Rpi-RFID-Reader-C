@@ -4,18 +4,9 @@
 #include <wiringPi.h>
 #include <time.h>
 #include <errno.h>
-#include "CardReader.c"
+#include "cardReader.h"
 #include "main.h"
 #include "pins.c"
-
-#define UNUSED_PIN -1
-#define PINS_COUNT 26
-#define FRAME_SIZE 26
-#define READERS_COUNT_MAX 8
-#define BIT_TIMEOUT 4000000
-
-//debug
-int counter = 0;
 
 int pins[PINS_COUNT] = {PIN_0, 
 		PIN_1, 
@@ -75,18 +66,13 @@ int main(void) {
 }
 
 void createCardReader(char* pname, int pGPIO_0, int pGPIO_1, void(*callback0), void(*callback1)){
-	CardReader temp;
+	CardReader temp = malloc(sizeof(CardReader));
 	
 	temp.name = pname;
 	temp.GPIO_0 = pGPIO_0;
 	temp.GPIO_1 = pGPIO_1;
 	temp.tag = malloc(sizeof(char)*FRAME_SIZE);
 	temp.bitCount = 0;
-
-	readers[pGPIO_0] = &temp;
-	readers[pGPIO_1] = &temp;
-	values[pGPIO_0] = 0;
-	values[pGPIO_1] = 1;
 	
 	
 	// Set pin to input in case it's not
@@ -100,12 +86,18 @@ void createCardReader(char* pname, int pGPIO_0, int pGPIO_1, void(*callback0), v
 	wiringPiISR(PIN_23, INT_EDGE_FALLING, callback0);
 	wiringPiISR(PIN_24, INT_EDGE_FALLING, callback1);
 	
-	updateArrays(temp);
+	updateArrays(&temp);
 
 }
 
-void updateArrays(CardReader reader){
+void updateArrays(CardReader* reader){
 	_readers = realloc(_readers, sizeof(CardReader)*(READERS_COUNT+1));
-	_readers[READERS_COUNT] = reader;
+	_readers[READERS_COUNT] = *reader;
+
+	readers[reader.GPIO_0] = reader;
+	readers[reader.GPIO_1] = reader;
+	values[reader.GPIO_0] = 0;
+	values[reader.GPIO_1] = 1;
+
 	READERS_COUNT++;
 }
