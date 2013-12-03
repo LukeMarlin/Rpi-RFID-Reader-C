@@ -35,7 +35,7 @@ int pins[PINS_COUNT] = {PIN_0,
 		PIN_24, 
 		PIN_25};
 
-int values[PINS_COUNT] = {};
+char values[PINS_COUNT] = {};
 int READERS_COUNT = 0;
 int COUNTER = 0;
 
@@ -57,9 +57,7 @@ int main(void) {
 	
 	initProgram();
 	initReaders();
-	
-	
-	
+
 	// Waste time but not CPU
 	for (;;) {
 		sleep(1);
@@ -72,7 +70,9 @@ void createCardReader(char* pname, int pGPIO_0, int pGPIO_1, void(*callback0), v
 	temp->name = pname;
 	temp->GPIO_0 = pGPIO_0;
 	temp->GPIO_1 = pGPIO_1;
-	temp->tag = malloc(sizeof(char)*FRAME_SIZE);
+	temp->tag = (char *)malloc(sizeof(char)*FRAME_SIZE+1);
+	//temp->tag = "                          \0";
+	//temp->tag[FRAME_SIZE] = '\0';
 	temp->bitCount = 0;
 	
 	
@@ -97,8 +97,8 @@ void updateArrays(CardReader* reader){
 
 	readers[reader->GPIO_0] = reader;
 	readers[reader->GPIO_1] = reader;
-	values[reader->GPIO_0] = 0;
-	values[reader->GPIO_1] = 1;
+	values[reader->GPIO_0] = '0';
+	values[reader->GPIO_1] = '1';
 
 	READERS_COUNT++;
 }

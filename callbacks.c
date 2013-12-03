@@ -16,6 +16,7 @@ void handler(int PIN_ID){
 	//Buffer empty, start of frame
 	if(reader->bitCount == 0){
 		reader->lastUpdated = newTime;
+		reader->tag[reader->bitCount] = values[PIN_ID];
 		reader->bitCount++;
 	}
 	//Buffer not empty
@@ -28,12 +29,14 @@ void handler(int PIN_ID){
 		}
 		//End of frame
 		else if(reader->bitCount == FRAME_SIZE-1) { 
-			printf("[%s] Done with %d calls!\n", reader->name,COUNTER);
+			reader->tag[reader->bitCount] = values[PIN_ID]; 
+			printf("[%s] Done with %d calls: %s\n", reader->name, COUNTER, reader->tag);
 			COUNTER = 0;
 			reader->bitCount = 0;
 		}
 		//Add bit
 		else{
+			reader->tag[reader->bitCount] = values[PIN_ID];
 			reader->bitCount++;
 			reader->lastUpdated = newTime;
 		}
