@@ -37,6 +37,7 @@ int pins[PINS_COUNT] = {PIN_0,
 
 int values[PINS_COUNT] = {};
 int READERS_COUNT = 0;
+int COUNTER = 0;
 
 CardReader** readers;
 CardReader* _readers;
@@ -49,7 +50,7 @@ void initProgram(){
 }
 
 void initReaders(){
-	createCardReader("Lecteur", PIN_23, PIN_24, &callback23, &callback24);
+	createCardReader("Fred", PIN_23, PIN_24, &callback23, &callback24);
 }
 
 int main(void) {
@@ -66,13 +67,13 @@ int main(void) {
 }
 
 void createCardReader(char* pname, int pGPIO_0, int pGPIO_1, void(*callback0), void(*callback1)){
-	CardReader temp = malloc(sizeof(CardReader));
+	CardReader* temp = malloc(sizeof(CardReader));
 	
-	temp.name = pname;
-	temp.GPIO_0 = pGPIO_0;
-	temp.GPIO_1 = pGPIO_1;
-	temp.tag = malloc(sizeof(char)*FRAME_SIZE);
-	temp.bitCount = 0;
+	temp->name = pname;
+	temp->GPIO_0 = pGPIO_0;
+	temp->GPIO_1 = pGPIO_1;
+	temp->tag = malloc(sizeof(char)*FRAME_SIZE);
+	temp->bitCount = 0;
 	
 	
 	// Set pin to input in case it's not
@@ -85,8 +86,8 @@ void createCardReader(char* pname, int pGPIO_0, int pGPIO_1, void(*callback0), v
 	// Bind to interrupt
 	wiringPiISR(PIN_23, INT_EDGE_FALLING, callback0);
 	wiringPiISR(PIN_24, INT_EDGE_FALLING, callback1);
-	
-	updateArrays(&temp);
+
+	updateArrays(temp);
 
 }
 
@@ -94,10 +95,10 @@ void updateArrays(CardReader* reader){
 	_readers = realloc(_readers, sizeof(CardReader)*(READERS_COUNT+1));
 	_readers[READERS_COUNT] = *reader;
 
-	readers[reader.GPIO_0] = reader;
-	readers[reader.GPIO_1] = reader;
-	values[reader.GPIO_0] = 0;
-	values[reader.GPIO_1] = 1;
+	readers[reader->GPIO_0] = reader;
+	readers[reader->GPIO_1] = reader;
+	values[reader->GPIO_0] = 0;
+	values[reader->GPIO_1] = 1;
 
 	READERS_COUNT++;
 }

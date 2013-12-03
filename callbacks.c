@@ -4,7 +4,7 @@ void handler(int PIN_ID){
 	
 	//Getting the reader associated to the PIN that raised the event
 	CardReader* reader = readers[PIN_ID];
-
+	COUNTER++;
 	//Executing the function atomically
 	pthread_mutex_lock(&reader->lockObj);
 
@@ -13,7 +13,6 @@ void handler(int PIN_ID){
 	if(clock_gettime(CLOCK_REALTIME, &newTime) != 0)
 		printf("Error N° : %d\n", errno);
 
-	
 	//Buffer empty, start of frame
 	if(reader->bitCount == 0){
 		reader->lastUpdated = newTime;
@@ -23,12 +22,14 @@ void handler(int PIN_ID){
 	else{ 
 		//Last bit is outdated = corrupted buffer
 		if(isTimedOut(reader->lastUpdated, newTime)){
-			printf("Line %d : buffer size %d \n", ++counter,reader->bitCount);
+			printf("Buffer size %d \n", reader->bitCount);
 			reader->bitCount = 0;
+			reader->lastUpdated = newTime;
 		}
 		//End of frame
-		else if(++reader->bitCount == FRAME_SIZE) { 
-			printf("Line %d : Done !\n", ++counter);
+		else if(reader->bitCount == FRAME_SIZE-1) { 
+			printf("[%s] Done with %d calls!\n", reader->name,COUNTER);
+			COUNTER = 0;
 			reader->bitCount = 0;
 		}
 		//Add bit
@@ -47,31 +48,13 @@ int isTimedOut(struct timespec start, struct timespec end){
 	long int secDelta = end.tv_sec - start.tv_sec;
 	long int nsecDelta = end.tv_nsec - start.tv_nsec;
 	
-	if(secDelta == 0) 
-	{
-		if(nsecDelta < BIT_TIMEOUT  )
-		{
-			 return 0;
-		}
-		else
-		{
-			printf("Timed out in same second\n");
-			return 1;
-		}
+	if(secDelta == 0){
+		if(nsecDelta < BIT_TIMEOUT  )	return 0;
 	}
-	else
-	{
-		if(((1000000000 - start.tv_nsec) + end.tv_nsec) < BIT_TIMEOUT  ) 
-		{
-			return 0;
-		}
-		else
-		{
-			printf("Timed out in different second, nstart : %ld, nstop : %ld, nsecDela : %ld \n", start.tv_nsec, end.tv_nsec, nsecDelta );
-			printf("secDelta : %ld, start tvSec : %ld, end tvSec : %ld \n ", secDelta, start.tv_sec, end.tv_sec );
-			return 1;
-		}
+	else{
+		if(((SECOND_IN_NS * secDelta - start.tv_nsec) + end.tv_nsec) < BIT_TIMEOUT ) 	return 0;
 	}
+
 	return 1;
 }
 
