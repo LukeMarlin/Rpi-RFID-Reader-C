@@ -37,7 +37,6 @@ int pins[PINS_COUNT] = {PIN_0,
 
 char values[PINS_COUNT] = {};
 int READERS_COUNT = 0;
-int COUNTER = 0;
 
 CardReader** readers;
 CardReader* _readers;
@@ -71,8 +70,7 @@ void createCardReader(char* pname, int pGPIO_0, int pGPIO_1, void(*callback0), v
 	temp->GPIO_0 = pGPIO_0;
 	temp->GPIO_1 = pGPIO_1;
 	temp->tag = (char *)malloc(sizeof(char)*FRAME_SIZE+1);
-	//temp->tag = "                          \0";
-	//temp->tag[FRAME_SIZE] = '\0';
+	temp->tag[FRAME_SIZE] = '\0';
 	temp->bitCount = 0;
 	
 	
@@ -101,4 +99,27 @@ void updateArrays(CardReader* reader){
 	values[reader->GPIO_1] = '1';
 
 	READERS_COUNT++;
+}
+
+int parityCheck(char** tag){
+	int bitsTo1 =0;
+	int i=0;
+	char* temp = *tag;
+
+	for(i; i<=MIDDLE_FRAME-1; i++){
+		if(temp[i] == '1')	bitsTo1++;
+	}
+		
+	if(bitsTo1%2 != 0)	return 0;
+
+	bitsTo1 = 0;
+
+	for(i=MIDDLE_FRAME; i<=FRAME_SIZE-1; i++){
+		if(temp[i] == '1')	bitsTo1++;
+	}
+
+	if(bitsTo1%2 == 0)	return 0;
+
+
+	return 1;
 }

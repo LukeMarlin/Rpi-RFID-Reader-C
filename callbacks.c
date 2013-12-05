@@ -4,7 +4,7 @@ void handler(int PIN_ID){
 	
 	//Getting the reader associated to the PIN that raised the event
 	CardReader* reader = readers[PIN_ID];
-	COUNTER++;
+
 	//Executing the function atomically
 	pthread_mutex_lock(&reader->lockObj);
 
@@ -30,8 +30,13 @@ void handler(int PIN_ID){
 		//End of frame
 		else if(reader->bitCount == FRAME_SIZE-1) { 
 			reader->tag[reader->bitCount] = values[PIN_ID]; 
-			printf("[%s] Done with %d calls: %s\n", reader->name, COUNTER, reader->tag);
-			COUNTER = 0;
+			reader->bitCount++;
+			if(parityCheck(&reader->tag)){
+				printf("[%s] Done with %d bits: %s\n", reader->name, reader->bitCount, reader->tag);
+			}
+			else{
+				printf("[%s] Parity check with %d bits failed : %s\n", reader->name, reader->bitCount, reader->tag);
+			}
 			reader->bitCount = 0;
 		}
 		//Add bit
