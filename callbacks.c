@@ -29,10 +29,10 @@ void handler(int PIN_ID){
 		}
 		//End of frame
 		else if(reader->bitCount == FRAME_SIZE-1) { 
-			reader->tag[reader->bitCount] = values[PIN_ID]; 
+			reader->tag[reader->bitCount] = values[PIN_ID];
 			reader->bitCount++;
-			if(parityCheck(&reader->tag)){
-				printf("[%s] Done with %d bits: %s\n", reader->name, reader->bitCount, reader->tag);
+			if(parityCheck(&reader->tag)){	
+				printf("[%s] Done with %d bits: %s, value = %ld\n", reader->name, reader->bitCount, reader->tag, getIntFromTag(reader->tag));
 			}
 			else{
 				printf("[%s] Parity check with %d bits failed : %s\n", reader->name, reader->bitCount, reader->tag);

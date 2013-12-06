@@ -123,3 +123,16 @@ int parityCheck(char** tag){
 
 	return 1;
 }
+
+
+long int getIntFromTag(char* tag){
+	char* temp = tag;
+
+	temp[0] = '0';
+	//temp[FRAME_SIZE-1] = '0';
+	long int result;
+	result = strtol(temp, 0, 2);
+	result = result >> 1;
+	return result;
+}
+
