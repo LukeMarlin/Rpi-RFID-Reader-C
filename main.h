@@ -12,3 +12,5 @@ void createCardReader(char* , int, int, void*, void*);
 void updateArrays(CardReader*);
 int parityCheck(char**);
 long int getIntFromTag(char*);
+int loadTagsFile(long*, char*, int*);
+int checkAuthorization(long*);

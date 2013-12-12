@@ -36,6 +36,11 @@ int pins[PINS_COUNT] = {PIN_0,
 		PIN_25};
 
 char values[PINS_COUNT] = {};
+long* userTags;
+long* adminTags;
+int userTagsCount = 0;
+int adminTagsCount = 0;
+
 int READERS_COUNT = 0;
 
 CardReader** readers;
@@ -43,14 +48,6 @@ CardReader* _readers;
 
 #include "callbacks.c"
 
-void initProgram(){
-	wiringPiSetupGpio();
-	readers = (CardReader**)malloc(sizeof(CardReader*)*PINS_COUNT);	
-}
-
-void initReaders(){
-	createCardReader("Fred", PIN_23, PIN_24, &callback23, &callback24);
-}
 
 int main(void) {
 	
@@ -61,6 +58,16 @@ int main(void) {
 	for (;;) {
 		sleep(1);
 	}
+}
+
+void initProgram(){
+	wiringPiSetupGpio();
+	readers = (CardReader**)malloc(sizeof(CardReader*)*PINS_COUNT);	
+	loadTagsFile(userTags, "userTags.txt", &userTagsCount);
+}
+
+void initReaders(){
+	createCardReader("Porte principale", PIN_23, PIN_24, &callback23, &callback24);
 }
 
 void createCardReader(char* pname, int pGPIO_0, int pGPIO_1, void(*callback0), void(*callback1)){
@@ -75,7 +82,16 @@ void createCardReader(char* pname, int pGPIO_0, int pGPIO_1, void(*callback0), v
 	
 	
 	// Set pin to input in case it's not
-	pinMode(pGPIO_0, INPUT);
+
+	void initProgram(){
+		wiringPiSetupGpio();
+		readers = (CardReader**)malloc(sizeof(CardReader*)*PINS_COUNT);	
+
+	}
+
+	void initReaders(){
+		createCardReader("Porte principale", PIN_23, PIN_24, &callback23, &callback24);
+	}	pinMode(pGPIO_0, INPUT);
 	pinMode(pGPIO_1, INPUT);
 	
 	pullUpDnControl(pGPIO_0, PUD_UP);
@@ -129,10 +145,49 @@ long int getIntFromTag(char* tag){
 	char* temp = tag;
 
 	temp[0] = '0';
-	//temp[FRAME_SIZE-1] = '0';
 	long int result;
 	result = strtol(temp, 0, 2);
 	result = result >> 1;
 	return result;
+}
+
+int loadTagsFile(long* array, char* filePath, int* tagCounter){
+	FILE* tagsFile = fopen(filePath, "r");
+	if(tagsFile == NULL) return 0;
+	else{
+		int charCount = 0;
+		int tagCount = 0;
+		int readChar;
+		char* buffer = (char*)malloc(0);
+
+		while(readChar != EOF){
+			readChar = fgetc(tagsFile);
+			if(readChar != '\n'){
+				charCount++;
+				buffer = (char*) realloc (buffer, sizeof(char) * (charCount+1));
+				buffer[charCount - 1] = (char)readChar;
+			}
+			else{
+				array = (long*)realloc(array, sizeof(long) * (tagCount+1));
+				array[tagCount] = strtol(buffer, 0 , 10);
+				buffer = (char*)malloc(0);
+				tagCount++;
+				charCount = 0;
+			}
+		}
+	*tagCounter = tagCount;
+	userTags = array;
+
+	return 1;
+	}
+}
+
+int checkAuthorization(long* tag){
+	int i;
+	for(i=0;i<userTagsCount; i++){
+		if(userTags[i] == *tag) return 1;
+	}
+
+	return 0;
 }
 

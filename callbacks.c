@@ -31,8 +31,13 @@ void handler(int PIN_ID){
 		else if(reader->bitCount == FRAME_SIZE-1) { 
 			reader->tag[reader->bitCount] = values[PIN_ID];
 			reader->bitCount++;
-			if(parityCheck(&reader->tag)){	
-				printf("[%s] Done with %d bits: %s, value = %ld\n", reader->name, reader->bitCount, reader->tag, getIntFromTag(reader->tag));
+			if(parityCheck(&reader->tag)){
+				long tagValue = getIntFromTag(reader->tag);	
+				printf("[%s] Parity check with %d bits succeeded: %s, value = %ld => ", reader->name, reader->bitCount, reader->tag, tagValue);
+				if(checkAuthorization(&tagValue) == 1)
+					printf("Authorized !\n");
+				else
+					printf("Refused !\n");
 			}
 			else{
 				printf("[%s] Parity check with %d bits failed : %s\n", reader->name, reader->bitCount, reader->tag);
