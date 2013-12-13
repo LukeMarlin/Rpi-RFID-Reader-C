@@ -4,9 +4,9 @@ C Raspberry Pi Wiegand RFID controller
 
 C program to connect multiple Wiegand RFID Cards Readers on _Raspberry Pi_ using the _wiringPi_ library.
 
-This program was written for Rev1 Raspberry Pi GPIO, for Rev2 raspi, replace the references of Rev1 GPIO numbers.
+This program was written for Rev1 Raspberry Pi GPIO. For Rev2 raspi, replace the references of GPIO numbers.
 
-##Prerequisite
+##Prerequisites
 
 * gcc
 * wiringPi library
