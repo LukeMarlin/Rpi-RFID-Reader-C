@@ -68,6 +68,7 @@ void initProgram(){
 
 void initReaders(){
 	createCardReader("Porte principale", PIN_23, PIN_24, &callback23, &callback24);
+	createCardReader("Porte pedro", PIN_7, PIN_8, &callback7, &callback8);
 }
 
 void createCardReader(char* pname, int pGPIO_0, int pGPIO_1, void(*callback0), void(*callback1)){
@@ -79,27 +80,17 @@ void createCardReader(char* pname, int pGPIO_0, int pGPIO_1, void(*callback0), v
 	temp->tag = (char *)malloc(sizeof(char)*FRAME_SIZE+1);
 	temp->tag[FRAME_SIZE] = '\0';
 	temp->bitCount = 0;
-	
-	
+
 	// Set pin to input in case it's not
-
-	void initProgram(){
-		wiringPiSetupGpio();
-		readers = (CardReader**)malloc(sizeof(CardReader*)*PINS_COUNT);	
-
-	}
-
-	void initReaders(){
-		createCardReader("Porte principale", PIN_23, PIN_24, &callback23, &callback24);
-	}	pinMode(pGPIO_0, INPUT);
+	pinMode(pGPIO_0, INPUT);
 	pinMode(pGPIO_1, INPUT);
 	
 	pullUpDnControl(pGPIO_0, PUD_UP);
 	pullUpDnControl(pGPIO_1, PUD_UP);
 
 	// Bind to interrupt
-	wiringPiISR(PIN_23, INT_EDGE_FALLING, callback0);
-	wiringPiISR(PIN_24, INT_EDGE_FALLING, callback1);
+	wiringPiISR(pGPIO_0, INT_EDGE_FALLING, callback0);
+	wiringPiISR(pGPIO_1, INT_EDGE_FALLING, callback1);
 
 	updateArrays(temp);
 

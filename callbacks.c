@@ -23,8 +23,9 @@ void handler(int PIN_ID){
 	else{ 
 		//Last bit is outdated = corrupted buffer
 		if(isTimedOut(reader->lastUpdated, newTime)){
-			printf("Buffer size %d \n", reader->bitCount);
-			reader->bitCount = 0;
+			//printf("Buffer size %d \n", reader->bitCount);
+			reader->bitCount = 1;
+			reader->tag[0] = values[PIN_ID];
 			reader->lastUpdated = newTime;
 		}
 		//End of frame
@@ -40,7 +41,7 @@ void handler(int PIN_ID){
 					printf("Refused !\n");
 			}
 			else{
-				printf("[%s] Parity check with %d bits failed : %s\n", reader->name, reader->bitCount, reader->tag);
+				//printf("[%s] Parity check with %d bits failed : %s\n", reader->name, reader->bitCount, reader->tag);
 			}
 			reader->bitCount = 0;
 		}
@@ -67,7 +68,7 @@ int isTimedOut(struct timespec start, struct timespec end){
 	else{
 		if(((SECOND_IN_NS * secDelta - start.tv_nsec) + end.tv_nsec) < BIT_TIMEOUT ) 	return 0;
 	}
-
+	//printf("%ld %ld\n", secDelta, nsecDelta);
 	return 1;
 }
 
