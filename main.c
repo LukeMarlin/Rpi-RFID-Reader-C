@@ -1,9 +1,13 @@
 #include <stdio.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <sys/time.h>
 #include <wiringPi.h>
+#include <wiringShift.h>
 #include <time.h>
+#include <math.h>
 #include <errno.h>
+#include <pthread.h>
 #include "cardReader.h"
 #include "main.h"
 #include "pins.c"
@@ -40,8 +44,9 @@ long* userTags;
 long* adminTags;
 int userTagsCount = 0;
 int adminTagsCount = 0;
-
+double shiftRegisterValue = 0;
 int READERS_COUNT = 0;
+pthread_mutex_t locker;
 
 CardReader** readers;
 CardReader* _readers;
@@ -53,25 +58,33 @@ int main(void) {
 	
 	initProgram();
 	initReaders();
-
+	signal(SIGUSR1, signalHandler);
 	// Waste time but not CPU
 	for (;;) {
 		sleep(1);
 	}
 }
 
+
 void initProgram(){
 	wiringPiSetupGpio();
 	readers = (CardReader**)malloc(sizeof(CardReader*)*PINS_COUNT);	
 	loadTagsFile(userTags, "userTags.txt", &userTagsCount);
+	pinMode(PIN_LATCH, OUTPUT);
+	digitalWrite(PIN_LATCH, HIGH);	
+	pinMode(PIN_DATA, OUTPUT);
+	digitalWrite(PIN_DATA, LOW);
+	pinMode(PIN_CLOCK, OUTPUT);
+	digitalWrite(PIN_CLOCK, LOW);
 }
 
 void initReaders(){
-	createCardReader("Porte principale", PIN_23, PIN_24, &callback23, &callback24);
-	createCardReader("Porte pedro", PIN_7, PIN_8, &callback7, &callback8);
+	createCardReader("Porte principale", PIN_23, PIN_24, 0, 1, 2, &callback23, &callback24);
+	createCardReader("Porte annexe", PIN_7, PIN_25, 0, 1, 2, &callback7, &callback25);
+	grantAccess(readers[23]);
 }
 
-void createCardReader(char* pname, int pGPIO_0, int pGPIO_1, void(*callback0), void(*callback1)){
+void createCardReader(char* pname, int pGPIO_0, int pGPIO_1, int doorPin, int ledPin, int buzzerPin, void(*callback0), void(*callback1)){
 	CardReader* temp = malloc(sizeof(CardReader));
 	
 	temp->name = pname;
@@ -80,7 +93,10 @@ void createCardReader(char* pname, int pGPIO_0, int pGPIO_1, void(*callback0), v
 	temp->tag = (char *)malloc(sizeof(char)*FRAME_SIZE+1);
 	temp->tag[FRAME_SIZE] = '\0';
 	temp->bitCount = 0;
-
+	temp->door = doorPin;
+	temp->led = ledPin;
+	temp->buzzer = buzzerPin;
+	
 	// Set pin to input in case it's not
 	pinMode(pGPIO_0, INPUT);
 	pinMode(pGPIO_1, INPUT);
@@ -180,5 +196,57 @@ int checkAuthorization(long* tag){
 	}
 
 	return 0;
+}
+
+void* grantAccess(void* reader)
+{
+	CardReader* tempReader = (CardReader*)reader;
+	printf("Opening %s...\n", tempReader->name);
+	
+	pthread_t thread1;
+	pthread_t thread2;
+	pthread_t thread3;
+		
+	double doorValues[2] = {tempReader->door,3000};
+	double ledValues[2] = {tempReader->led,3000};
+	double buzzerValues[2] = {tempReader->buzzer,1000};
+	
+	pthread_create(&thread1, NULL, &updateOutput, (void*)doorValues);		
+	pthread_create(&thread2, NULL, &updateOutput, (void*)ledValues);
+	pthread_create(&thread3, NULL, &updateOutput, (void*)buzzerValues);
+	
+	printf("%s opened\n", tempReader->name);
+	sleep(15);
+}
+
+void* updateOutput(void* values)
+{
+	double* params = (double*)values;
+	
+	pthread_mutex_lock(&locker);
+	digitalWrite(PIN_LATCH, LOW);
+	shiftRegisterValue += pow(2, params[0]);
+	shiftOut(PIN_DATA, PIN_CLOCK, MSBFIRST, shiftRegisterValue);
+	digitalWrite(PIN_LATCH, HIGH);
+	pthread_mutex_unlock(&locker);
+	
+	sleep(params[1]*1000);
+
+	pthread_mutex_lock(&locker);
+	digitalWrite(PIN_LATCH, LOW);
+	shiftRegisterValue -= pow(2,params[0]);
+	shiftOut(PIN_DATA, PIN_CLOCK, MSBFIRST, shiftRegisterValue);
+	digitalWrite(PIN_LATCH, HIGH);
+	pthread_mutex_unlock(&locker);
+
+}
+
+void signalHandler(int mysignal){
+	if(mysignal == SIGUSR1)
+	{
+		
+		printf("SIGNAL SIGUSR1 RECEIVED\n");
+	}
+
 }
 

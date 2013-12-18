@@ -15,4 +15,7 @@
 #define PIN_23 23
 #define PIN_24 24
 #define PIN_25 25
+#define PIN_DATA 10
+#define PIN_CLOCK 11
+#define PIN_LATCH 8
 #define UNUSABLE_PIN -1

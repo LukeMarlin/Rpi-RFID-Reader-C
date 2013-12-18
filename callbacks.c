@@ -1,5 +1,3 @@
-#include <pthread.h>
-
 void handler(int PIN_ID){
 	
 	//Getting the reader associated to the PIN that raised the event
@@ -35,8 +33,13 @@ void handler(int PIN_ID){
 			if(parityCheck(&reader->tag)){
 				long tagValue = getIntFromTag(reader->tag);	
 				printf("[%s] Parity check with %d bits succeeded: %s, value = %ld => ", reader->name, reader->bitCount, reader->tag, tagValue);
-				if(checkAuthorization(&tagValue) == 1)
-					printf("Authorized !\n");
+				if(checkAuthorization(&tagValue) == 1){
+					pthread_t thread;
+					int error = 1;
+					error = pthread_create(&thread, NULL, &grantAccess, readers[PIN_ID]); 	
+					if(error!=0)
+						printf("error: %d", error); 
+				}
 				else
 					printf("Refused !\n");
 			}
