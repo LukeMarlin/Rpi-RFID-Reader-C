@@ -10,7 +10,7 @@ void* updateOutput(void*);
 void signalHandler(int);
 void initProgram(void);
 void initReaders(void);
-void createCardReader(char*, int, int, int, int, int, void*, void*);
+void createCardReader(char*, int, int, double, double, double, void*, void*);
 void updateArrays(CardReader*);
 int parityCheck(char**);
 long int getIntFromTag(char*);

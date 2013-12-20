@@ -36,6 +36,7 @@ void handler(int PIN_ID){
 				if(checkAuthorization(&tagValue) == 1){
 					pthread_t thread;
 					int error = 1;
+					printf("Authorized !\n");
 					error = pthread_create(&thread, NULL, &grantAccess, readers[PIN_ID]); 	
 					if(error!=0)
 						printf("error: %d", error); 

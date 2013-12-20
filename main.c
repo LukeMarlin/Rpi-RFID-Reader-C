@@ -59,6 +59,9 @@ int main(void) {
 	initProgram();
 	initReaders();
 	signal(SIGUSR1, signalHandler);
+	digitalWrite(PIN_LATCH, LOW);	
+	shiftOut(PIN_DATA, PIN_CLOCK, MSBFIRST, 0);
+	digitalWrite(PIN_LATCH, HIGH);	
 	// Waste time but not CPU
 	for (;;) {
 		sleep(1);
@@ -80,11 +83,10 @@ void initProgram(){
 
 void initReaders(){
 	createCardReader("Porte principale", PIN_23, PIN_24, 0, 1, 2, &callback23, &callback24);
-	createCardReader("Porte annexe", PIN_7, PIN_25, 0, 1, 2, &callback7, &callback25);
-	grantAccess(readers[23]);
+	createCardReader("Porte annexe", PIN_7, PIN_25, 3, 4, 5, &callback7, &callback25);
 }
 
-void createCardReader(char* pname, int pGPIO_0, int pGPIO_1, int doorPin, int ledPin, int buzzerPin, void(*callback0), void(*callback1)){
+void createCardReader(char* pname, int pGPIO_0, int pGPIO_1, double doorPin, double ledPin, double buzzerPin, void(*callback0), void(*callback1)){
 	CardReader* temp = malloc(sizeof(CardReader));
 	
 	temp->name = pname;
@@ -206,23 +208,27 @@ void* grantAccess(void* reader)
 	pthread_t thread1;
 	pthread_t thread2;
 	pthread_t thread3;
-		
-	double doorValues[2] = {tempReader->door,3000};
-	double ledValues[2] = {tempReader->led,3000};
-	double buzzerValues[2] = {tempReader->buzzer,1000};
-	
+
+	double* doorValues = (double*)malloc(sizeof(double)*2);
+	doorValues[0] = tempReader->door;
+	doorValues[1] = 4000;
+	double* ledValues = (double*)malloc(sizeof(double)*2);
+	ledValues[0] = tempReader->led;
+	ledValues[1] = 3000;
+	double* buzzerValues = (double*)malloc(sizeof(double)*2);
+	buzzerValues[0] = tempReader->buzzer;
+	buzzerValues[1] = 1000;
+
 	pthread_create(&thread1, NULL, &updateOutput, (void*)doorValues);		
 	pthread_create(&thread2, NULL, &updateOutput, (void*)ledValues);
 	pthread_create(&thread3, NULL, &updateOutput, (void*)buzzerValues);
 	
-	printf("%s opened\n", tempReader->name);
-	sleep(15);
 }
 
 void* updateOutput(void* values)
 {
 	double* params = (double*)values;
-	
+
 	pthread_mutex_lock(&locker);
 	digitalWrite(PIN_LATCH, LOW);
 	shiftRegisterValue += pow(2, params[0]);
@@ -230,7 +236,7 @@ void* updateOutput(void* values)
 	digitalWrite(PIN_LATCH, HIGH);
 	pthread_mutex_unlock(&locker);
 	
-	sleep(params[1]*1000);
+	usleep((int)(params[1]*1000));
 
 	pthread_mutex_lock(&locker);
 	digitalWrite(PIN_LATCH, LOW);
