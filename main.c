@@ -184,6 +184,7 @@ int loadTagsFile(long* array, char* filePath, int* tagCounter){
 			else{
 				array = (long*)realloc(array, sizeof(long) * (tagCount+1));
 				array[tagCount] = strtol(buffer, 0 , 10);
+				free(buffer);
 				buffer = (char*)malloc(0);
 				tagCount++;
 				charCount = 0;
@@ -211,14 +212,14 @@ void* refuseAccess(void* reader){
 	CardReader* tempReader = (CardReader*)reader;
 
 	tempReader->isOpening = 1;
-	double* values;
+	double* refusedValues;
 	int callCount = 0;
 
 	for(callCount = 0; callCount < 7; callCount++){
-		values = (double*)malloc(sizeof(double)*2);
-		values[0] = tempReader->led;
-		values[1] = 100;
-		updateOutput((void*)values);
+		refusedValues = (double*)malloc(sizeof(double)*2);
+		refusedValues[0] = tempReader->led;
+		refusedValues[1] = 100;
+		updateOutput((void*)refusedValues);
 		usleep(40000);
 	}
 	tempReader->isOpening = 0;
