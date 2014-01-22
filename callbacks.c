@@ -34,12 +34,22 @@ void handler(int PIN_ID){
 				long tagValue = getIntFromTag(reader->tag);	
 				printf("[%s] Parity check with %d bits succeeded: %s, value = %ld => ", reader->name, reader->bitCount, reader->tag, tagValue);
 				if(checkAuthorization(&tagValue) == 1){
-					pthread_t thread;
-					int error = 1;
-					printf("Authorized !\n");
-					error = pthread_create(&thread, NULL, &grantAccess, readers[PIN_ID]); 	
-					if(error!=0)
-						printf("error: %d", error); 
+					
+					if(!reader->isOpening == 1){
+						pthread_t thread;
+						pthread_attr_t attr;
+						pthread_attr_init(&attr);
+						pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+					
+						int error = 1;
+						printf("Authorized !\n");
+						error = pthread_create(&thread, &attr, &grantAccess, readers[PIN_ID]); 	
+						if(error!=0)
+							printf("error: %d", error);
+					}
+					else{
+						printf("Already open !\n");
+					}
 				}
 				else
 					printf("Refused !\n");
