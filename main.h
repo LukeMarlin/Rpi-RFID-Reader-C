@@ -6,6 +6,7 @@
 #define SECOND_IN_NS 1000000000
 
 void* grantAccess(void*);
+void* refuseAccess(void*);
 void* updateOutput(void*);
 void signalHandler(int);
 void initProgram(void);

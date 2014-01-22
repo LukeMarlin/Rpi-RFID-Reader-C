@@ -207,6 +207,23 @@ int checkAuthorization(long* tag){
 	return 0;
 }
 
+void* refuseAccess(void* reader){
+	CardReader* tempReader = (CardReader*)reader;
+
+	tempReader->isOpening = 1;
+	double* values;
+	int callCount = 0;
+
+	for(callCount = 0; callCount < 7; callCount++){
+		values = (double*)malloc(sizeof(double)*2);
+		values[0] = tempReader->led;
+		values[1] = 100;
+		updateOutput((void*)values);
+		usleep(40000);
+	}
+	tempReader->isOpening = 0;
+}
+
 void* grantAccess(void* reader)
 {
 	CardReader* tempReader = (CardReader*)reader;

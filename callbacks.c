@@ -51,8 +51,19 @@ void handler(int PIN_ID){
 						printf("Already open !\n");
 					}
 				}
-				else
+				else{
+					pthread_t thread;
+					pthread_attr_t attr;
+					pthread_attr_init(&attr);
+					pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+					
+					int error = 1;
+					
 					printf("Refused !\n");
+					error = pthread_create(&thread, &attr, &refuseAccess, readers[PIN_ID]); 	
+					if(error!=0)
+						printf("error: %d", error);
+				}
 			}
 			else{
 				//printf("[%s] Parity check with %d bits failed : %s\n", reader->name, reader->bitCount, reader->tag);
