@@ -1,5 +1,9 @@
 void handler(int PIN_ID){
 	
+	if(isSystemLocked){
+		return;
+	}
+	
 	//Getting the reader associated to the PIN that raised the event
 	CardReader* reader = readers[PIN_ID];
 

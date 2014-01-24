@@ -17,3 +17,7 @@ int parityCheck(char**);
 long int getIntFromTag(char*);
 int loadTagsFile(long*, char*, int*);
 int checkAuthorization(long*);
+void lockSystem();
+void unlockSystem();
+void* blinkReaders(void*);
+void* blinkReader(void*);

@@ -48,6 +48,8 @@ double shiftRegisterValue = 0;
 int READERS_COUNT = 0;
 pthread_mutex_t locker = PTHREAD_MUTEX_INITIALIZER;
 
+int isSystemLocked = 0;
+
 CardReader** readers;
 CardReader* _readers;
 
@@ -166,6 +168,14 @@ long int getIntFromTag(char* tag){
 }
 
 int loadTagsFile(long* array, char* filePath, int* tagCounter){
+	lockSystem();
+
+
+	//Create a thread that makes every reader blink regularly
+	pthread_t blinkThread;
+	pthread_create(&blinkThread, NULL, &blinkReaders, NULL);
+
+	//Open the userTags file
 	FILE* tagsFile = fopen(filePath, "r");
 	if(tagsFile == NULL) return 0;
 	else{
@@ -194,7 +204,8 @@ int loadTagsFile(long* array, char* filePath, int* tagCounter){
 	userTags = array;
 	free(buffer);
 	fclose(tagsFile);
-
+	unlockSystem();
+	
 	return 1;
 	}
 }
@@ -212,14 +223,21 @@ void* refuseAccess(void* reader){
 	CardReader* tempReader = (CardReader*)reader;
 
 	tempReader->isOpening = 1;
-	double* refusedValues;
+	double* ledValues;
+	double* buzzerValues;
 	int callCount = 0;
 
 	for(callCount = 0; callCount < 7; callCount++){
-		refusedValues = (double*)malloc(sizeof(double)*2);
-		refusedValues[0] = tempReader->led;
-		refusedValues[1] = 100;
-		updateOutput((void*)refusedValues);
+		ledValues = (double*)malloc(sizeof(double)*2);		
+		ledValues[0] = tempReader->led;
+		ledValues[1] = 100;	
+		updateOutput((void*)ledValues);
+
+		buzzerValues = (double*)malloc(sizeof(double)*2);
+		buzzerValues[0] = tempReader->buzzer;
+		buzzerValues[1] = 100;
+		updateOutput((void*)buzzerValues);
+
 		usleep(40000);
 	}
 	tempReader->isOpening = 0;
@@ -301,9 +319,45 @@ void* updateOutput(void* values)
 void signalHandler(int mysignal){
 	if(mysignal == SIGUSR1)
 	{
-		
 		printf("SIGNAL SIGUSR1 RECEIVED\n");
 	}
 
 }
 
+void lockSystem(){
+	isSystemLocked = 1;
+}
+
+void unlockSystem(){
+	isSystemLocked = 0;
+}
+
+void* blinkReader(void* reader){
+	double* values = (double*)malloc(sizeof(double)*2);
+	CardReader* tempReader = (CardReader*)reader;
+	
+	pthread_t blinkThread;
+	pthread_attr_t attr;
+	pthread_attr_init(&attr);
+	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+
+	values[0] = tempReader->led;
+	values[1] = 300;
+
+	pthread_create(&blinkThread, &attr, &updateOutput, (double*)values);
+}
+
+void* blinkReaders(void* param){
+	int i = 0;
+
+	double** ledValues = malloc(0);	
+	while(isSystemLocked == 1){
+
+		ledValues = (double**)malloc(sizeof(double*)*READERS_COUNT);		
+
+		for(i=0; i<READERS_COUNT; i++){
+			blinkReader(readers[_readers[i].GPIO_1]);
+		}
+		usleep(500000);	
+	}
+}
