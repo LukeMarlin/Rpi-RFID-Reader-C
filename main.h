@@ -15,8 +15,9 @@ void createCardReader(char*, int, int, double, double, double, double, double, d
 void updateArrays(CardReader*);
 int parityCheck(char**);
 long int getIntFromTag(char*);
-int loadTagsFile(long*, char*, int*);
+int loadTagsFile(long**, char*, int*);
 int checkAuthorization(long*);
+int areCourtsOpened();
 void lockSystem();
 void unlockSystem();
 void* blinkReaders(void*);

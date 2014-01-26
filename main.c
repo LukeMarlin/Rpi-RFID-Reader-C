@@ -39,16 +39,24 @@ int pins[PINS_COUNT] = {PIN_0,
 		PIN_24, 
 		PIN_25};
 
+//Necessary global variables for the program behaviour
 char values[PINS_COUNT] = {};
 long* userTags;
+long* clubTags;
 long* adminTags;
 int userTagsCount = 0;
+int clubTagsCount = 0;
 int adminTagsCount = 0;
 double shiftRegisterValue = 0;
 int READERS_COUNT = 0;
 pthread_mutex_t locker = PTHREAD_MUTEX_INITIALIZER;
-
 int isSystemLocked = 0;
+
+//Configuration lines for opening and closing times
+int openingHour = 7;
+int openingMinute = 30;
+int closingHour = 23;
+int closingMinute = 0;
 
 CardReader** readers;
 CardReader* _readers;
@@ -74,7 +82,9 @@ int main(void) {
 void initProgram(){
 	wiringPiSetupGpio();
 	readers = (CardReader**)malloc(sizeof(CardReader*)*PINS_COUNT);	
-	loadTagsFile(userTags, "userTags.txt", &userTagsCount);
+	loadTagsFile(&userTags, "userTags.txt", &userTagsCount);
+	loadTagsFile(&clubTags, "clubTags.txt", &clubTagsCount);
+	loadTagsFile(&adminTags, "adminTags.txt", &adminTagsCount);
 	pinMode(PIN_LATCH, OUTPUT);
 	digitalWrite(PIN_LATCH, HIGH);	
 	pinMode(PIN_DATA, OUTPUT);
@@ -83,6 +93,7 @@ void initProgram(){
 	digitalWrite(PIN_CLOCK, LOW);
 }
 
+//Here we create the readers. You must adjust the values according to your wiring and your desired behaviour
 void initReaders(){
 	createCardReader("Porte principale", PIN_23, PIN_24, 0, 3000, 1, 2000, 2, 2000, &callback23, &callback24);
 	createCardReader("Porte annexe", PIN_7, PIN_25, 3, 3000, 4, 2000, 5, 2000, &callback7, &callback25);
@@ -121,6 +132,7 @@ void createCardReader(char* pname, int pGPIO_0, int pGPIO_1, double doorPin, dou
 
 }
 
+//update the readers and values arrays
 void updateArrays(CardReader* reader){
 	_readers = realloc(_readers, sizeof(CardReader)*(READERS_COUNT+1));
 	_readers[READERS_COUNT] = *reader;
@@ -133,6 +145,7 @@ void updateArrays(CardReader* reader){
 	READERS_COUNT++;
 }
 
+//Check the parity of a specified tag
 int parityCheck(char** tag){
 	int bitsTo1 =0;
 	int i=0;
@@ -156,7 +169,7 @@ int parityCheck(char** tag){
 	return 1;
 }
 
-
+//Retrieves the integer value from a binary value stored as a char array
 long int getIntFromTag(char* tag){
 	char* temp = tag;
 
@@ -166,16 +179,16 @@ long int getIntFromTag(char* tag){
 	result = result >> 1;
 	return result;
 }
-
-int loadTagsFile(long* array, char* filePath, int* tagCounter){
+//Load a specific file of tags inside an array
+int loadTagsFile(long** tagsArray, char* filePath, int* tagCounter){
 	lockSystem();
-
+	long* array = malloc(0);
 
 	//Create a thread that makes every reader blink regularly
 	pthread_t blinkThread;
 	pthread_create(&blinkThread, NULL, &blinkReaders, NULL);
 
-	//Open the userTags file
+	//Open the tags file
 	FILE* tagsFile = fopen(filePath, "r");
 	if(tagsFile == NULL) return 0;
 	else{
@@ -201,7 +214,7 @@ int loadTagsFile(long* array, char* filePath, int* tagCounter){
 			}
 		}
 	*tagCounter = tagCount;
-	userTags = array;
+	*tagsArray = array;
 	free(buffer);
 	fclose(tagsFile);
 	unlockSystem();
@@ -210,15 +223,37 @@ int loadTagsFile(long* array, char* filePath, int* tagCounter){
 	}
 }
 
+//Check if the tag can open the door according to it's presence
+//on the files and the specified time
 int checkAuthorization(long* tag){
 	int i;
+	
 	for(i=0;i<userTagsCount; i++){
-		if(userTags[i] == *tag) return 1;
+		if(userTags[i] == *tag && areCourtsOpened()) return 1;
 	}
-
+	for(i=0;i<clubTagsCount; i++){
+		if(clubTags[i] == *tag && areCourtsOpened()) return 1;
+	}
+	for(i=0;i<adminTagsCount; i++){
+		if(adminTags[i] == *tag) return 1;
+	}
 	return 0;
 }
 
+//Compares current time to opening and closing time
+int areCourtsOpened(){
+	time_t currentTimeStamp;
+	time(&currentTimeStamp);
+	struct tm* currentTime;
+	currentTime = gmtime(&currentTimeStamp);
+	
+	if(currentTime->tm_hour*60 + currentTime->tm_min >= openingHour*60 +openingMinute
+	   && currentTime->tm_hour*60 + currentTime->tm_min <= closingHour*60 + closingMinute)
+		return 1;
+	return 0;
+}
+
+//Pilots he reader to show the user he's being refused
 void* refuseAccess(void* reader){
 	CardReader* tempReader = (CardReader*)reader;
 
@@ -243,6 +278,7 @@ void* refuseAccess(void* reader){
 	tempReader->isOpening = 0;
 }
 
+//pilots the reader to show the user he's being accepted
 void* grantAccess(void* reader)
 {
 	CardReader* tempReader = (CardReader*)reader;
