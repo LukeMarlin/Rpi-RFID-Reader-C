@@ -2,6 +2,7 @@ typedef struct CardReader{
 
 char* name;
 char* tag;
+int zone;
 int GPIO_0;
 int GPIO_1;
 double door;

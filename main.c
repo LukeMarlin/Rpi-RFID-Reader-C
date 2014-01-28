@@ -100,16 +100,17 @@ void initProgram(){
 
 //Here we create the readers. You must adjust the values according to your wiring and your desired behaviour
 void initReaders(){
-	createCardReader("Porte principale", PIN_23, PIN_24, 0, 3000, 1, 2000, 2, 2000, &callback23, &callback24);
-	createCardReader("Porte annexe", PIN_7, PIN_25, 3, 3000, 4, 2000, 5, 2000, &callback7, &callback25);
+	createCardReader("Porte principale", PIN_23, PIN_24, 1, 0, 3000, 1, 2000, 2, 2000, &callback23, &callback24);
+	createCardReader("Porte annexe", PIN_7, PIN_25, 1, 3, 3000, 4, 2000, 5, 2000, &callback7, &callback25);
 }
 
-void createCardReader(char* pname, int pGPIO_0, int pGPIO_1, double doorPin, double doorTime, double ledPin, double ledTime, double buzzerPin, double buzzerTime, void(*callback0), void(*callback1)){
+void createCardReader(char* pname, int pGPIO_0, int pGPIO_1, int zone, double doorPin, double doorTime, double ledPin, double ledTime, double buzzerPin, double buzzerTime, void(*callback0), void(*callback1)){
 	CardReader* temp = malloc(sizeof(CardReader));
 	
 	temp->name = pname;
 	temp->GPIO_0 = pGPIO_0;
 	temp->GPIO_1 = pGPIO_1;
+	temp->zone = zone;
 	temp->tag = (char *)malloc(sizeof(char)*FRAME_SIZE+1);
 	temp->tag[FRAME_SIZE] = '\0';
 	temp->bitCount = 0;
@@ -228,11 +229,13 @@ int loadTagsFile(long** tagsArray, char* filePath, int* tagCounter){
 
 //Check if the tag can open the door according to it's presence
 //on the files and the specified time
-int checkAuthorization(long* tag){
+int checkAuthorization(long* tag, CardReader* reader){
 	int i;
-	
-	for(i=0;i<userTagsCount; i++){
-		if(userTags[i] == *tag && areCourtsOpened()) return 1;
+
+	if(reader->zone == 1){		
+		for(i=0;i<userTagsCount; i++){
+			if(userTags[i] == *tag && areCourtsOpened()) return 1;
+		}
 	}
 	for(i=0;i<clubTagsCount; i++){
 		if(clubTags[i] == *tag && areCourtsOpened()) return 1;
