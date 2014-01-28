@@ -84,9 +84,6 @@ int main(void) {
 void initProgram(){
 	wiringPiSetupGpio();
 	readers = (CardReader**)malloc(sizeof(CardReader*)*PINS_COUNT);	
-	loadTagsFile(&userTags, "userTags.txt", &userTagsCount);
-	loadTagsFile(&clubTags, "clubTags.txt", &clubTagsCount);
-	loadTagsFile(&adminTags, "adminTags.txt", &adminTagsCount);
 	
 	logFile = fopen("logFile.txt", "a");
 	
@@ -189,7 +186,6 @@ long int getIntFromTag(char* tag){
 }
 //Load a specific file of tags inside an array
 int loadTagsFile(long** tagsArray, char* filePath, int* tagCounter){
-	lockSystem();
 	long* array = malloc(0);
 
 	//Create a thread that makes every reader blink regularly
@@ -225,7 +221,6 @@ int loadTagsFile(long** tagsArray, char* filePath, int* tagCounter){
 	*tagsArray = array;
 	free(buffer);
 	fclose(tagsFile);
-	unlockSystem();
 	
 	return 1;
 	}
@@ -438,9 +433,12 @@ void createLogEntry(char* readerName, long tagNumber, int isAccepted){
 
 void* backgroundUpdater(void* param){
 	for(;;){
+		lockSystem();
 		int oldDBTagsVersionNumber = DBTagsVersionNumber;
 		char str[21];
 		char result[22];
+		
+		fclose(logFile);
 		
 		sprintf(str, "python3 ../getUserTags.py -t %d -s 1", oldDBTagsVersionNumber);
 		runScript(str, result);
@@ -458,6 +456,10 @@ void* backgroundUpdater(void* param){
 		sprintf(str, "python3 ../sendLogFile.py");
 		runScript(str, result);
 	
+		logFile = fopen("logFile.txt", "a");
+
+		unlockSystem();
+
 		sleep(7200);
 	}
 }
