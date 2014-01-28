@@ -1,6 +1,8 @@
-#include <pthread.h>
-
 void handler(int PIN_ID){
+	
+	if(isSystemLocked){
+		return;
+	}
 	
 	//Getting the reader associated to the PIN that raised the event
 	CardReader* reader = readers[PIN_ID];
@@ -34,11 +36,44 @@ void handler(int PIN_ID){
 			reader->bitCount++;
 			if(parityCheck(&reader->tag)){
 				long tagValue = getIntFromTag(reader->tag);	
+				int isAccepted;
 				printf("[%s] Parity check with %d bits succeeded: %s, value = %ld => ", reader->name, reader->bitCount, reader->tag, tagValue);
-				if(checkAuthorization(&tagValue) == 1)
-					printf("Authorized !\n");
-				else
+				if(checkAuthorization(&tagValue) == 1){
+					isAccepted = 1;
+					if(!reader->isOpening == 1){
+						pthread_t thread;
+						pthread_attr_t attr;
+						pthread_attr_init(&attr);
+						pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+					
+						int error = 1;
+						printf("Authorized !\n");
+						error = pthread_create(&thread, &attr, &grantAccess, readers[PIN_ID]); 	
+						if(error!=0)
+							printf("error: %d", error);
+					}
+					else{
+						printf("Already open !\n");
+					}
+				}
+				else{
+					isAccepted = 0;
+					pthread_t thread;
+					pthread_attr_t attr;
+					pthread_attr_init(&attr);
+					pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+					
+					int error = 1;
+					
 					printf("Refused !\n");
+					error = pthread_create(&thread, &attr, &refuseAccess, readers[PIN_ID]); 	
+					if(error!=0)
+						printf("error: %d", error);
+				}
+
+				
+				createLogEntry(reader->name, tagValue, isAccepted);
+
 			}
 			else{
 				//printf("[%s] Parity check with %d bits failed : %s\n", reader->name, reader->bitCount, reader->tag);
