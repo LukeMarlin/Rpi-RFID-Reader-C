@@ -47,10 +47,12 @@ long* adminTags;
 int userTagsCount = 0;
 int clubTagsCount = 0;
 int adminTagsCount = 0;
-double shiftRegisterValue = 0;
+uint8_t shiftRegisterValue = 0;
 int READERS_COUNT = 0;
 pthread_mutex_t locker = PTHREAD_MUTEX_INITIALIZER;
 int isSystemLocked = 0;
+FILE* logFile;
+int DBTagsVersionNumber = 0;
 
 //Configuration lines for opening and closing times
 int openingHour = 7;
@@ -85,12 +87,18 @@ void initProgram(){
 	loadTagsFile(&userTags, "userTags.txt", &userTagsCount);
 	loadTagsFile(&clubTags, "clubTags.txt", &clubTagsCount);
 	loadTagsFile(&adminTags, "adminTags.txt", &adminTagsCount);
+	
+	logFile = fopen("logFile.txt", "a");
+	
 	pinMode(PIN_LATCH, OUTPUT);
 	digitalWrite(PIN_LATCH, HIGH);	
 	pinMode(PIN_DATA, OUTPUT);
 	digitalWrite(PIN_DATA, LOW);
 	pinMode(PIN_CLOCK, OUTPUT);
 	digitalWrite(PIN_CLOCK, LOW);
+
+	pthread_t bgThread;
+	pthread_create(&bgThread, NULL, &backgroundUpdater, NULL);
 }
 
 //Here we create the readers. You must adjust the values according to your wiring and your desired behaviour
@@ -263,14 +271,18 @@ void* refuseAccess(void* reader){
 	int callCount = 0;
 
 	for(callCount = 0; callCount < 7; callCount++){
-		ledValues = (double*)malloc(sizeof(double)*2);		
+		ledValues = (double*)malloc(sizeof(double)*3);
 		ledValues[0] = tempReader->led;
 		ledValues[1] = 100;	
+		ledValues[2] = -1;
+	
 		updateOutput((void*)ledValues);
 
-		buzzerValues = (double*)malloc(sizeof(double)*2);
+		buzzerValues = (double*)malloc(sizeof(double)*3);
 		buzzerValues[0] = tempReader->buzzer;
 		buzzerValues[1] = 100;
+		buzzerValues[2] = -1;
+
 		updateOutput((void*)buzzerValues);
 
 		usleep(40000);
@@ -307,15 +319,18 @@ void* grantAccess(void* reader)
 	else if(tempReader->ledTime >longest)
 		longest = tempReader->ledTime;
 	
-	double* doorValues = (double*)malloc(sizeof(double)*2);
+	double* doorValues = (double*)malloc(sizeof(double)*3);
 	doorValues[0] = tempReader->door;
 	doorValues[1] = tempReader->doorTime;
-	double* ledValues = (double*)malloc(sizeof(double)*2);
+	doorValues[2] = -1;
+	double* ledValues = (double*)malloc(sizeof(double)*3);
 	ledValues[0] = tempReader->led;
 	ledValues[1] = tempReader->ledTime;
-	double* buzzerValues = (double*)malloc(sizeof(double)*2);
+	ledValues[2] = -1;
+	double* buzzerValues = (double*)malloc(sizeof(double)*3);
 	buzzerValues[0] = tempReader->buzzer;
 	buzzerValues[1] = tempReader->buzzerTime;
+	buzzerValues[2] = -1;
 
 	pthread_create(&thread1, &attr1, &updateOutput, (void*)doorValues);		
 	pthread_create(&thread2, &attr2, &updateOutput, (void*)ledValues);
@@ -335,7 +350,12 @@ void* updateOutput(void* values)
 
 	pthread_mutex_lock(&locker);
 	digitalWrite(PIN_LATCH, LOW);
-	shiftRegisterValue += pow(2, params[0]);
+
+	uint8_t changeValue = (uint8_t)pow(2, params[0]);
+	if(params[2] !=-1)
+		changeValue += (uint8_t)pow(2, params[1]);
+	shiftRegisterValue += changeValue;
+
 	shiftOut(PIN_DATA, PIN_CLOCK, MSBFIRST, shiftRegisterValue);
 	digitalWrite(PIN_LATCH, HIGH);
 	pthread_mutex_unlock(&locker);
@@ -344,7 +364,7 @@ void* updateOutput(void* values)
 
 	pthread_mutex_lock(&locker);
 	digitalWrite(PIN_LATCH, LOW);
-	shiftRegisterValue -= pow(2,params[0]);
+	shiftRegisterValue -= changeValue;
 	shiftOut(PIN_DATA, PIN_CLOCK, MSBFIRST, shiftRegisterValue);
 	digitalWrite(PIN_LATCH, HIGH);
 	pthread_mutex_unlock(&locker);
@@ -369,7 +389,7 @@ void unlockSystem(){
 }
 
 void* blinkReader(void* reader){
-	double* values = (double*)malloc(sizeof(double)*2);
+	double* values = (double*)malloc(sizeof(double)*3);
 	CardReader* tempReader = (CardReader*)reader;
 	
 	pthread_t blinkThread;
@@ -378,7 +398,9 @@ void* blinkReader(void* reader){
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 
 	values[0] = tempReader->led;
+	printf("\n led=%f\n", tempReader->led);
 	values[1] = 300;
+	values[2] = 0;
 
 	pthread_create(&blinkThread, &attr, &updateOutput, (double*)values);
 }
@@ -386,14 +408,64 @@ void* blinkReader(void* reader){
 void* blinkReaders(void* param){
 	int i = 0;
 
-	double** ledValues = malloc(0);	
+		
 	while(isSystemLocked == 1){
 
-		ledValues = (double**)malloc(sizeof(double*)*READERS_COUNT);		
+			
 
 		for(i=0; i<READERS_COUNT; i++){
 			blinkReader(readers[_readers[i].GPIO_1]);
 		}
 		usleep(500000);	
 	}
+}
+
+void createLogEntry(char* readerName, long tagNumber, int isAccepted){
+	//Checks if the file is correctly opened
+//	if(!logFile == NULL){
+
+		time_t currentTimeStamp;
+		time(&currentTimeStamp);
+		struct tm* currentTime;
+		currentTime = gmtime(&currentTimeStamp);
+
+		//Writes the line at the end of the file
+		fprintf(logFile, "%d-%d-%d %d:%d:%d,%s,%ld,%d;", currentTime->tm_year + 1900, currentTime->tm_mon+1, currentTime->tm_mday, 
+			currentTime->tm_hour, currentTime->tm_min, currentTime->tm_sec, readerName, tagNumber, isAccepted);
+		fflush(logFile);
+//	}	
+}
+
+void* backgroundUpdater(void* param){
+	for(;;){
+		int oldDBTagsVersionNumber = DBTagsVersionNumber;
+		char str[21];
+		char result[22];
+		
+		sprintf(str, "python3 ../getUserTags.py -t %d -s 1", oldDBTagsVersionNumber);
+		runScript(str, result);
+		DBTagsVersionNumber = strtol(result, NULL, 10);
+		loadTagsFile(&userTags, "userTags.txt", &userTagsCount);
+
+		sprintf(str, "python3 ../getUserTags.py -t %d -s 2", oldDBTagsVersionNumber);
+		runScript(str, result);
+		loadTagsFile(&clubTags, "clubTags.txt", &clubTagsCount);
+		
+		sprintf(str, "python3 ../getUserTags.py -t %d -s 3", oldDBTagsVersionNumber);
+		runScript(str, result);
+		loadTagsFile(&adminTags, "adminTags.txt", &adminTagsCount);
+	
+		sprintf(str, "python3 ../sendLogFile.py");
+		runScript(str, result);
+	
+		sleep(7200);
+	}
+}
+
+void runScript(char* command, char* result){
+	char* data;
+	FILE* stream;
+	
+	stream = popen(command, "r");
+	fgets(result, 22, stream);
 }

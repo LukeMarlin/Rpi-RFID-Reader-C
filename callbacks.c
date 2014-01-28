@@ -36,9 +36,10 @@ void handler(int PIN_ID){
 			reader->bitCount++;
 			if(parityCheck(&reader->tag)){
 				long tagValue = getIntFromTag(reader->tag);	
+				int isAccepted;
 				printf("[%s] Parity check with %d bits succeeded: %s, value = %ld => ", reader->name, reader->bitCount, reader->tag, tagValue);
 				if(checkAuthorization(&tagValue) == 1){
-					
+					isAccepted = 1;
 					if(!reader->isOpening == 1){
 						pthread_t thread;
 						pthread_attr_t attr;
@@ -56,6 +57,7 @@ void handler(int PIN_ID){
 					}
 				}
 				else{
+					isAccepted = 0;
 					pthread_t thread;
 					pthread_attr_t attr;
 					pthread_attr_init(&attr);
@@ -68,6 +70,10 @@ void handler(int PIN_ID){
 					if(error!=0)
 						printf("error: %d", error);
 				}
+
+				
+				createLogEntry(reader->name, tagValue, isAccepted);
+
 			}
 			else{
 				//printf("[%s] Parity check with %d bits failed : %s\n", reader->name, reader->bitCount, reader->tag);

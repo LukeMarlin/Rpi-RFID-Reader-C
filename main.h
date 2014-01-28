@@ -22,3 +22,6 @@ void lockSystem();
 void unlockSystem();
 void* blinkReaders(void*);
 void* blinkReader(void*);
+void* backgroundUpdater(void*);
+void createLogEntry(char*, long, int);
+void runScript(char*, char*);
