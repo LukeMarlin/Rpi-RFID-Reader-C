@@ -12,6 +12,13 @@
 #include "main.h"
 #include "pins.c"
 
+#define debug_mode 1
+#if debug_mode
+	#define debugf(a) (void)0
+#else
+	#define debugf(a) printf a
+#endif
+
 int pins[PINS_COUNT] = {PIN_0, 
 		PIN_1, 
 		UNUSABLE_PIN, 
@@ -50,10 +57,11 @@ int adminTagsCount = 0;
 long shiftRegisterValue = 0;
 int READERS_COUNT = 0;
 pthread_mutex_t locker = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t updateLocker = PTHREAD_MUTEX_INITIALIZER;
 int isSystemLocked = 0;
 FILE* logFile;
 int DBTagsVersionNumber = 0;
-int updateDelay = 7200; //time to reload tags base and send logs (in seconds)
+int updateDelay = 120; //time to reload tags base and send logs (in seconds)
 
 //Configuration lines for opening and closing times
 int openingHour = 7;
@@ -291,7 +299,7 @@ void* grantAccess(void* reader)
 	CardReader* tempReader = (CardReader*)reader;
 	
 	tempReader->isOpening = 1;
-	printf("Opening %s...\n", tempReader->name);
+	debugf(("Opening %s...\n", tempReader->name));
 	
 	pthread_t thread1;
 	pthread_attr_t attr1;
@@ -385,9 +393,8 @@ void* updateOutput(void* values)
 void signalHandler(int mysignal){
 	if(mysignal == SIGUSR1)
 	{
-		printf("SIGNAL SIGUSR1 RECEIVED\n");
+		updateProgramData();
 	}
-
 }
 
 void lockSystem(){
@@ -465,6 +472,7 @@ void* blinkReaders(void* param){
 		
 		usleep(250*1000);	
 	}
+	
 }
 
 void createLogEntry(char* readerName, long tagNumber, int isAccepted){
@@ -485,43 +493,52 @@ void createLogEntry(char* readerName, long tagNumber, int isAccepted){
 
 void* backgroundUpdater(void* param){
 	for(;;){
-		int oldDBTagsVersionNumber = DBTagsVersionNumber;
-		char str[21];
-		char result[22];
-
-		fclose(logFile);
-		
-		printf("Downloading tags database...");
-		fflush(stdout);
-		sprintf(str, "python3 ../getUserTags.py -t %d", oldDBTagsVersionNumber);
-		runScript(str, result);
-		DBTagsVersionNumber = strtol(result, NULL, 10);
-	
-	
-		lockSystem();
-		loadTagsFile(&userTags, "userTags.txt", &userTagsCount);
-		loadTagsFile(&clubTags, "clubTags.txt", &clubTagsCount);
-		loadTagsFile(&adminTags, "adminTags.txt", &adminTagsCount);
-		printf("Done !\n");
-
-		printf("Sending logs...");
-		fflush(stdout);
-
-		sprintf(str, "python3 ../sendLogFile.py");
-		runScript(str, result);
-		printf("Done !\n");
-		logFile = fopen("logFile.txt", "a");
-
-		unlockSystem();
-
+		updateProgramData();
 		sleep(updateDelay);
 	}
 }
 
+int updateProgramData(){
+
+	pthread_mutex_lock(&updateLocker);
+
+	int oldDBTagsVersionNumber = DBTagsVersionNumber;
+	char str[21];
+	char result[22];
+
+	fclose(logFile);
+	
+	debugf("Downloading tags database...");
+	fflush(stdout);
+	sprintf(str, "python3 ../getUserTags.py -t %d", oldDBTagsVersionNumber);
+	runScript(str, result);
+	DBTagsVersionNumber = strtol(result, NULL, 10);
+	
+	
+	lockSystem();
+	loadTagsFile(&userTags, "userTags.txt", &userTagsCount);
+	loadTagsFile(&clubTags, "clubTags.txt", &clubTagsCount);
+	loadTagsFile(&adminTags, "adminTags.txt", &adminTagsCount);
+	debugf("Done !\n");
+
+	debugf("Sending logs...");
+	fflush(stdout);
+
+	sprintf(str, "python3 ../sendLogFile.py");
+	runScript(str, result);
+	debugf("Done !\n");
+	logFile = fopen("logFile.txt", "a");
+	unlockSystem();
+
+	pthread_mutex_unlock(&updateLocker);
+
+
+}
 void runScript(char* command, char* result){
 	char* data;
 	FILE* stream;
 	
 	stream = popen(command, "r");
 	fgets(result, 22, stream);
+	fclose(stream);
 }
