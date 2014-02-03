@@ -53,6 +53,7 @@ pthread_mutex_t locker = PTHREAD_MUTEX_INITIALIZER;
 int isSystemLocked = 0;
 FILE* logFile;
 int DBTagsVersionNumber = 0;
+int updateDelay = 7200; //time to reload tags base and send logs (in seconds)
 
 //Configuration lines for opening and closing times
 int openingHour = 7;
@@ -391,6 +392,13 @@ void signalHandler(int mysignal){
 
 void lockSystem(){
 	isSystemLocked = 1;
+
+	//Create a thread that makes every reader blink regularly
+	pthread_t blinkThread;
+	pthread_attr_t attr;
+	pthread_attr_init(&attr);
+	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+	pthread_create(&blinkThread, &attr, &blinkReaders, NULL);
 }
 
 void unlockSystem(){
@@ -477,15 +485,9 @@ void createLogEntry(char* readerName, long tagNumber, int isAccepted){
 
 void* backgroundUpdater(void* param){
 	for(;;){
-		lockSystem();
 		int oldDBTagsVersionNumber = DBTagsVersionNumber;
 		char str[21];
 		char result[22];
-	
-		//Create a thread that makes every reader blink regularly
-		pthread_t blinkThread;
-		pthread_create(&blinkThread, NULL, &blinkReaders, NULL);
-
 
 		fclose(logFile);
 		
@@ -494,10 +496,12 @@ void* backgroundUpdater(void* param){
 		sprintf(str, "python3 ../getUserTags.py -t %d", oldDBTagsVersionNumber);
 		runScript(str, result);
 		DBTagsVersionNumber = strtol(result, NULL, 10);
-		
+	
+	
+		lockSystem();
 		loadTagsFile(&userTags, "userTags.txt", &userTagsCount);
 		loadTagsFile(&clubTags, "clubTags.txt", &clubTagsCount);
-		loadTagsFile(&adminTags, "userTags.txt", &adminTagsCount);
+		loadTagsFile(&adminTags, "adminTags.txt", &adminTagsCount);
 		printf("Done !\n");
 
 		printf("Sending logs...");
@@ -510,7 +514,7 @@ void* backgroundUpdater(void* param){
 
 		unlockSystem();
 
-		sleep(7200);
+		sleep(updateDelay);
 	}
 }
 
