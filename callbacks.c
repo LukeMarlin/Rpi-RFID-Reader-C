@@ -13,7 +13,7 @@ void handler(int PIN_ID){
 	//Getting current time
 	struct timespec newTime;
 	if(clock_gettime(CLOCK_REALTIME, &newTime) != 0)
-		printf("Error N° : %d\n", errno);
+		debugf(("Error N° : %d\n", errno));
 
 	//Buffer empty, start of frame
 	if(reader->bitCount == 0){
@@ -37,40 +37,40 @@ void handler(int PIN_ID){
 			if(parityCheck(&reader->tag)){
 				long tagValue = getIntFromTag(reader->tag);	
 				int isAccepted;
-				printf("[%s] Parity check with %d bits succeeded: %s, value = %ld => ", reader->name, reader->bitCount, reader->tag, tagValue);
-				if(checkAuthorization(&tagValue, reader) == 1){
-					isAccepted = 1;
-					if(!reader->isOpening == 1){
+				debugf(("[%s] Parity check with %d bits succeeded: %s, value = %ld => ", reader->name, reader->bitCount, reader->tag, tagValue));
+				if(!reader->isOpening == 1){
+					if(checkAuthorization(&tagValue, reader) == 1){
+						isAccepted = 1;
 						pthread_t thread;
 						pthread_attr_t attr;
 						pthread_attr_init(&attr);
 						pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 					
 						int error = 1;
-						printf("Authorized !\n");
+						debugf(("Authorized !\n"));
 						error = pthread_create(&thread, &attr, &grantAccess, readers[PIN_ID]); 	
 						if(error!=0)
-							printf("error: %d", error);
+							debugf(("error: %d", error));
 					}
 					else{
-						printf("Already open !\n");
+						isAccepted = 0;
+						pthread_t thread;
+						pthread_attr_t attr;
+						pthread_attr_init(&attr);
+						pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+					
+						int error = 1;
+				
+						debugf(("Refused !\n"));
+						error = pthread_create(&thread, &attr, &refuseAccess, readers[PIN_ID]); 	
+						if(error!=0)
+							debugf(("error: %d", error));
 					}
 				}
 				else{
-					isAccepted = 0;
-					pthread_t thread;
-					pthread_attr_t attr;
-					pthread_attr_init(&attr);
-					pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-					
-					int error = 1;
-					
-					printf("Refused !\n");
-					error = pthread_create(&thread, &attr, &refuseAccess, readers[PIN_ID]); 	
-					if(error!=0)
-						printf("error: %d", error);
+					isAccepted = 2;
+					debugf(("Reader already in use\n"));
 				}
-
 				
 				createLogEntry(reader->name, tagValue, isAccepted);
 

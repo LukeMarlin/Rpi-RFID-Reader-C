@@ -25,3 +25,4 @@ void* blinkReader(void*);
 void* backgroundUpdater(void*);
 void createLogEntry(char*, long, int);
 void runScript(char*, char*);
+int printd(char*, int);
