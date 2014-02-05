@@ -12,7 +12,7 @@
 #include "main.h"
 #include "pins.c"
 
-#define debug_mode 0
+#define debug_mode 1
 #if debug_mode
 	#define debugf(a) (void)0
 #else
@@ -519,6 +519,7 @@ int updateProgramData(){
 	loadTagsFile(&userTags, "userTags.txt", &userTagsCount);
 	loadTagsFile(&clubTags, "clubTags.txt", &clubTagsCount);
 	loadTagsFile(&adminTags, "adminTags.txt", &adminTagsCount);
+
 	debugf(("Done !\n"));
 
 	debugf(("Sending logs..."));
@@ -526,7 +527,9 @@ int updateProgramData(){
 
 	sprintf(str, "python3 ../sendLogFile.py");
 	runScript(str, result);
+
 	debugf(("Done !\n"));
+
 	logFile = fopen("logFile.txt", "a");
 	unlockSystem();
 

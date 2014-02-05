@@ -47,7 +47,9 @@ void handler(int PIN_ID){
 						pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 					
 						int error = 1;
+
 						debugf(("Authorized !\n"));
+
 						error = pthread_create(&thread, &attr, &grantAccess, readers[PIN_ID]); 	
 						if(error!=0)
 							debugf(("error: %d", error));
@@ -62,6 +64,7 @@ void handler(int PIN_ID){
 						int error = 1;
 				
 						debugf(("Refused !\n"));
+
 						error = pthread_create(&thread, &attr, &refuseAccess, readers[PIN_ID]); 	
 						if(error!=0)
 							debugf(("error: %d", error));
@@ -69,6 +72,7 @@ void handler(int PIN_ID){
 				}
 				else{
 					isAccepted = 2;
+
 					debugf(("Reader already in use\n"));
 				}
 				
