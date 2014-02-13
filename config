@@ -1,0 +1,50 @@
+//Configuration file for RFID access control
+
+//Application configuration
+openingHour = 7;			//Opening hour
+openingMinute = 30;	 		//Opening minute
+closingHour = 23;			//Closing hour
+closingMinute = 0;			//Closing minute
+
+logFilePath = "logFile.txt";		//Path of the logs file
+bipCount = 7;				//Number of bips done when a tag is refused
+updateDelay = 600;			//Delay (in seconds) within each tags base and logs update
+
+//Readers configuration
+/*Each reader must have the following variables :
+name -> the reader name. Used for logs
+GPIO_0 -> PIN used to transmit the 0 values
+GPIO_1 -> PIN used to transmit the 1 values
+zone -> zone to which the reader is assigned
+
+doorPin -> PIN where the door command is wired
+doorTime -> time (in ms) during which the door will stay opened
+ledPin -> PIN where the led command is wired
+ledTime -> time (in ms) during which the led will stay lit
+buzzerPin -> PIN where the buzzer command is wired
+buzzerTime - > time (in ms) during which the buzzer will keep buzzing
+*/
+
+readers = ({name = "Porte principale";
+		GPIO_0 = 23;
+		GPIO_1 = 24;
+		zone = 1.4;
+		doorPin = 0;
+		doorTime = 3000;
+		ledPin = 1;
+		ledTime = 2000;
+		buzzerPin = 2;
+		buzzerTime = 2000;},
+		
+		{name = "Porte annexe";
+		GPIO_0 = 7;
+		GPIO_1 = 25;
+		zone = 1;
+		doorPin = 3;
+		doorTime = 3000;
+		ledPin = 4;
+		ledTime = 2000;
+		buzzerPin = 5;
+		buzzerTime = 2000;})
+
+
