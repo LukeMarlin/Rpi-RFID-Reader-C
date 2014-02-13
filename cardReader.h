@@ -1,6 +1,6 @@
 typedef struct CardReader{
 
-char* name;
+const char* name;
 char* tag;
 int zone;
 int GPIO_0;

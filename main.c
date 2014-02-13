@@ -8,6 +8,7 @@
 #include <math.h>
 #include <errno.h>
 #include <pthread.h>
+#include <libconfig.h>
 #include "cardReader.h"
 #include "main.h"
 #include "pins.c"
@@ -62,6 +63,14 @@ int isSystemLocked = 0;
 FILE* logFile;
 int DBTagsVersionNumber = 0;
 int updateDelay = 600; //time to reload tags base and send logs (in seconds)
+int bipCount = 7;
+const char* logFilePath = "logFile.txt";
+const char* errFilePath = "/var/log/accessControl";
+FILE* errFile;
+
+//Configuration file vars
+config_t cfg;
+config_setting_t* setting;
 
 //Configuration lines for opening and closing times
 int openingHour = 7;
@@ -88,13 +97,93 @@ int main(void) {
 	}
 }
 
+int loadConfig(){
+	config_init(&cfg);
+
+	if(!config_read_file(&cfg, "config")){
+		fprintf(stderr, "%s:%d - %s\n", config_error_file(&cfg),
+			config_error_line(&cfg), config_error_text(&cfg));
+	config_destroy(&cfg);
+	return 0;
+	}
+
+	//Get opening and closing times
+	if(!config_lookup_int(&cfg, "openingHour", &openingHour))
+		logErr("No 'openingHour' setting in configuration file.");
+
+	if(!config_lookup_int(&cfg, "openingMinute", &openingMinute))
+		logErr("No 'openingMinute' setting in configuration file.");
+
+	if(!config_lookup_int(&cfg, "closingHour", &closingHour))
+		logErr("No 'closingHour' setting in configuration file.");
+
+	if(!config_lookup_int(&cfg, "closingMinute", &closingMinute))
+		logErr("No 'closingMinute' setting in configuration file.");
+
+	//Loading bip count for refused access
+	if(!config_lookup_int(&cfg, "bipCount", &bipCount))
+		logErr("No 'bipCount' setting in configuration file.");
+
+	//Loading delay value between each update of tags and logs
+	if(!config_lookup_int(&cfg, "updateDelay", &updateDelay))
+		logErr("No 'updateDelay' setting in configuration file.");
+	
+	//Loading the log file path
+	if(!config_lookup_string(&cfg, "logFilePath", &logFilePath))
+		logErr("No 'logFilePath' setting in configuration file.");
+
+
+	setting = config_lookup(&cfg, "readers");
+
+	if(setting != NULL){
+		int count = config_setting_length(setting);
+		int i;
+
+		for(i = 0; i < count; i++){
+			config_setting_t* reader = config_setting_get_elem(setting, i);
+			
+			const char* name;
+			int GPIO_0, GPIO_1, zone;
+			int doorPin, doorTime, ledPin, ledTime, buzzerPin, buzzerTime;
+			void(*cb1);
+			void(*cb2);
+
+
+			if(!(config_setting_lookup_string(reader, "name", &name)
+			&& config_setting_lookup_int(reader, "GPIO_0", &GPIO_0)
+			&& config_setting_lookup_int(reader, "GPIO_1", &GPIO_1)
+			&& config_setting_lookup_int(reader, "zone", &zone)
+			&& config_setting_lookup_int(reader, "doorPin", &doorPin)
+			&& config_setting_lookup_int(reader, "doorTime", &doorTime)
+			&& config_setting_lookup_int(reader, "ledPin", &ledPin)
+			&& config_setting_lookup_int(reader, "ledTime", &ledTime)
+			&& config_setting_lookup_int(reader, "buzzerPin", &buzzerPin)
+			&& config_setting_lookup_int(reader, "buzzerTime", &buzzerTime)))
+			{
+				logErr("An error occured when initializing readers. Please check the configuration file");
+				continue;
+			}
+			else{
+				cb1 = getCorrespondingCallback(GPIO_0);
+				cb2 = getCorrespondingCallback(GPIO_1);
+				if(cb1 == NULL || cb2 == NULL){
+					logErr("One or multiple pins doesn't have corresponding callbacks");
+					continue;
+				}
+
+				createCardReader(name, GPIO_0, GPIO_1, zone, doorPin, doorTime, ledPin, ledTime, buzzerPin, buzzerTime, cb1, cb2);
+			}
+		}
+	}
+}
 
 void initProgram(){
 	wiringPiSetupGpio();
 	readers = (CardReader**)malloc(sizeof(CardReader*)*PINS_COUNT);	
-	
-	logFile = fopen("logFile.txt", "a");
-	
+	logFile = fopen(logFilePath, "a");
+	errFile = fopen(errFilePath, "a");
+
+	loadConfig();
 	pinMode(PIN_LATCH, OUTPUT);
 	digitalWrite(PIN_LATCH, HIGH);	
 	pinMode(PIN_DATA, OUTPUT);
@@ -107,13 +196,13 @@ void initProgram(){
 	pthread_create(&bgThread, NULL, &backgroundUpdater, NULL);
 }
 
-//Here we create the readers. You must adjust the values according to your wiring and your desired behaviour
+//Here we create the readers. You must adjust the values in the config file according to your wiring and your desired behaviour
 void initReaders(){
-	createCardReader("Porte principale", PIN_23, PIN_24, 1, 0, 3000, 1, 2000, 2, 2000, &callback23, &callback24);
-	createCardReader("Porte annexe", PIN_7, PIN_25, 1, 3, 3000, 4, 2000, 5, 2000, &callback7, &callback25);
+	//createCardReader("Porte principale", PIN_23, PIN_24, 1, 0, 3000, 1, 2000, 2, 2000, &callback23, &callback24);
+	//createCardReader("Porte annexe", PIN_7, PIN_25, 1, 3, 3000, 4, 2000, 5, 2000, &callback7, &callback25);
 }
 
-void createCardReader(char* pname, int pGPIO_0, int pGPIO_1, int zone, double doorPin, double doorTime, double ledPin, double ledTime, double buzzerPin, double buzzerTime, void(*callback0), void(*callback1)){
+void createCardReader(const char* pname, int pGPIO_0, int pGPIO_1, int zone, double doorPin, double doorTime, double ledPin, double ledTime, double buzzerPin, double buzzerTime, void(*callback0), void(*callback1)){
 	CardReader* temp = malloc(sizeof(CardReader));
 	
 	temp->name = pname;
@@ -140,10 +229,9 @@ void createCardReader(char* pname, int pGPIO_0, int pGPIO_1, int zone, double do
 	pullUpDnControl(pGPIO_1, PUD_UP);
 
 	// Bind to interrupt
+	updateArrays(temp);
 	wiringPiISR(pGPIO_0, INT_EDGE_FALLING, callback0);
 	wiringPiISR(pGPIO_1, INT_EDGE_FALLING, callback1);
-
-	updateArrays(temp);
 
 }
 
@@ -273,7 +361,7 @@ void* refuseAccess(void* reader){
 	double* buzzerValues;
 	int callCount = 0;
 
-	for(callCount = 0; callCount < 7; callCount++){
+	for(callCount = 0; callCount < bipCount; callCount++){
 		ledValues = (double*)malloc(sizeof(double)*3);
 		ledValues[0] = tempReader->led;
 		ledValues[1] = 100;	
@@ -475,7 +563,7 @@ void* blinkReaders(void* param){
 	
 }
 
-void createLogEntry(char* readerName, long tagNumber, int isAccepted){
+void createLogEntry(const char* readerName, long tagNumber, int isAccepted){
 	//Checks if the file is correctly opened
 //	if(!logFile == NULL){
 
@@ -503,7 +591,7 @@ int updateProgramData(){
 	pthread_mutex_lock(&updateLocker);
 
 	int oldDBTagsVersionNumber = DBTagsVersionNumber;
-	char str[21];
+	char str[22];
 	char result[22];
 
 	fclose(logFile);
@@ -544,4 +632,61 @@ void runScript(char* command, char* result){
 	stream = popen(command, "r");
 	fgets(result, 22, stream);
 	fclose(stream);
+}
+
+void* getCorrespondingCallback(int pin){
+
+//void (*callb)(void*) = (void (*)(void*)) pcallb;
+
+	switch(pin){
+		case 0:
+			return callback0; break;
+		case 1:
+			return callback1; break;
+		case 4:
+			return callback4; break;
+		case 7:
+			return callback7; break;
+		case 8:
+			return callback8; break;
+		case 9:
+			return callback9; break;
+		case 10:
+			return callback10; break;
+		case 11:
+			return callback11; break;
+		case 14:
+			return callback14; break;
+		case 15:
+			return callback15; break;
+		case 17:
+			return callback17; break;
+		case 18:
+			return callback18; break;
+		case 21:
+			return callback21; break;
+		case 22:
+			return callback22; break;
+		case 23:
+			return callback23; break;
+		case 24:
+			return callback24; break;
+		case 25:
+			return callback25; break;
+		default:
+			return NULL; break;
+	}
+}
+
+void logErr(char* error){
+
+if(errFile != NULL){
+	time_t currentTimeStamp;
+	time(&currentTimeStamp);
+	struct tm* currentTime;
+	currentTime = gmtime(&currentTimeStamp);
+	fprintf(errFile, "%d-%d-%d %d:%d:%d: %s\n", currentTime->tm_year + 1900, currentTime->tm_mon+1, currentTime->tm_mday, 
+			currentTime->tm_hour, currentTime->tm_min, currentTime->tm_sec, error);
+	fflush(errFile);
+	}
 }
