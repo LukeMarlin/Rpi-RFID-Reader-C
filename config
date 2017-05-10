@@ -1,14 +1,15 @@
 //Configuration file for RFID access control
 
 //Application configuration
-openingHour = 7;			//Opening hour
-openingMinute = 30;	 		//Opening minute
-closingHour = 23;			//Closing hour
-closingMinute = 0;			//Closing minute
+openingHour = 7;				//Opening hour
+openingMinute = 30;		 		//Opening minute
+closingHour = 23;				//Closing hour
+closingMinute = 0;				//Closing minute
 
-logFilePath = "logFile.txt";		//Path of the logs file
-bipCount = 7;				//Number of bips done when a tag is refused
-updateDelay = 600;			//Delay (in seconds) within each tags base and logs update
+logFilePath = "logFile.txt";			//Path of the logs file
+bipCount = 7;					//Number of bips done when a tag is refused
+updateDelay = 600;				//Delay (in seconds) within each tags base and logs update
+pythonScriptsDirectory = "python-scripts/";	//Directory where getTags.py and sendLogs.py files are. (don't forget the ending '/')
 
 //Readers configuration
 /*Each reader must have the following variables :
@@ -26,25 +27,14 @@ buzzerTime - > time (in ms) during which the buzzer will keep buzzing
 */
 
 readers = ({name = "Porte principale";
-		GPIO_0 = 23;
-		GPIO_1 = 24;
-		zone = 1.4;
-		doorPin = 0;
-		doorTime = 3000;
-		ledPin = 1;
-		ledTime = 2000;
-		buzzerPin = 2;
-		buzzerTime = 2000;},
-		
-		{name = "Porte annexe";
-		GPIO_0 = 7;
-		GPIO_1 = 25;
+		GPIO_0 = 4;
+		GPIO_1 = 17;
 		zone = 1;
-		doorPin = 3;
+		doorPin = 2;
 		doorTime = 3000;
-		ledPin = 4;
+		ledPin = 10;
 		ledTime = 2000;
-		buzzerPin = 5;
+		buzzerPin = 18;
 		buzzerTime = 2000;})
 
 

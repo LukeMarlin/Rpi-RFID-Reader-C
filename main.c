@@ -13,7 +13,7 @@
 #include "main.h"
 #include "pins.c"
 
-#define debug_mode 1
+#define debug_mode 0
 #if debug_mode
 	#define debugf(a) (void)0
 #else
@@ -62,9 +62,10 @@ pthread_mutex_t updateLocker = PTHREAD_MUTEX_INITIALIZER;
 int isSystemLocked = 0;
 FILE* logFile;
 int DBTagsVersionNumber = 0;
-int updateDelay = 600; //time to reload tags base and send logs (in seconds)
+int updateDelay = 610; //time to reload tags base and send logs (in seconds)
 int bipCount = 7;
 const char* logFilePath = "logFile.txt";
+const char* pythonScriptsDirectory;
 const char* errFilePath = "/var/log/accessControl";
 FILE* errFile;
 
@@ -127,12 +128,15 @@ int loadConfig(){
 	//Loading delay value between each update of tags and logs
 	if(!config_lookup_int(&cfg, "updateDelay", &updateDelay))
 		logErr("No 'updateDelay' setting in configuration file.");
-	
+
 	//Loading the log file path
 	if(!config_lookup_string(&cfg, "logFilePath", &logFilePath))
 		logErr("No 'logFilePath' setting in configuration file.");
 
-
+	//Loading python scripts directory
+	if(!config_lookup_string(&cfg, "pythonScriptsDirectory", &pythonScriptsDirectory))
+		logErr("No 'pythonScriptsDirectory' setting in configuration file.");
+	
 	setting = config_lookup(&cfg, "readers");
 
 	if(setting != NULL){
@@ -184,6 +188,7 @@ void initProgram(){
 	errFile = fopen(errFilePath, "a");
 
 	loadConfig();
+
 	pinMode(PIN_LATCH, OUTPUT);
 	digitalWrite(PIN_LATCH, HIGH);	
 	pinMode(PIN_DATA, OUTPUT);
@@ -193,7 +198,14 @@ void initProgram(){
 
 	initReaders();
 	pthread_t bgThread;
-	pthread_create(&bgThread, NULL, &backgroundUpdater, NULL);
+	
+	pthread_attr_t attr1;
+
+	pthread_attr_init(&attr1);
+
+	pthread_attr_setdetachstate(&attr1, PTHREAD_CREATE_DETACHED);
+
+	pthread_create(&bgThread, &attr1, &backgroundUpdater, NULL);
 }
 
 //Here we create the readers. You must adjust the values in the config file according to your wiring and your desired behaviour
@@ -318,6 +330,7 @@ int loadTagsFile(long** tagsArray, char* filePath, int* tagCounter){
 	
 	return 1;
 	}
+
 }
 
 //Check if the tag can open the door according to it's presence
@@ -431,8 +444,7 @@ void* grantAccess(void* reader)
 	pthread_attr_destroy(&attr1);
 	pthread_attr_destroy(&attr2);
 	pthread_attr_destroy(&attr3);
-	tempReader->isOpening = 0;
-	
+	tempReader->isOpening = 0;	
 }
 
 void* updateOutput(void* values)
@@ -558,14 +570,14 @@ void* blinkReaders(void* param){
 		digitalWrite(PIN_LATCH, HIGH);
 		pthread_mutex_unlock(&locker);
 		
-		usleep(250*1000);	
+		usleep(250*1000);
 	}
 	
 }
 
 void createLogEntry(const char* readerName, long tagNumber, int isAccepted){
 	//Checks if the file is correctly opened
-//	if(!logFile == NULL){
+	//if(!logFile == NULL){
 
 		time_t currentTimeStamp;
 		time(&currentTimeStamp);
@@ -576,20 +588,20 @@ void createLogEntry(const char* readerName, long tagNumber, int isAccepted){
 		fprintf(logFile, "%d-%d-%d %d:%d:%d,%s,%ld,%d;", currentTime->tm_year + 1900, currentTime->tm_mon+1, currentTime->tm_mday, 
 			currentTime->tm_hour, currentTime->tm_min, currentTime->tm_sec, readerName, tagNumber, isAccepted);
 		fflush(logFile);
-//	}	
+	//}	
 }
 
 void* backgroundUpdater(void* param){
 	for(;;){
 		updateProgramData();
+		int updateDelay = 3000;
 		sleep(updateDelay);
+		
 	}
 }
 
 int updateProgramData(){
-
 	pthread_mutex_lock(&updateLocker);
-
 	int oldDBTagsVersionNumber = DBTagsVersionNumber;
 	char str[22];
 	char result[22];
@@ -598,22 +610,19 @@ int updateProgramData(){
 	
 	debugf(("Downloading tags database..."));
 	fflush(stdout);
-	sprintf(str, "python3 ../getUserTags.py -t %d", oldDBTagsVersionNumber);
+	sprintf(str, "python3 %sgetTags.py -t %d", pythonScriptsDirectory, oldDBTagsVersionNumber);
 	runScript(str, result);
 	DBTagsVersionNumber = strtol(result, NULL, 10);
-	
-	
 	lockSystem();
 	loadTagsFile(&userTags, "userTags.txt", &userTagsCount);
 	loadTagsFile(&clubTags, "clubTags.txt", &clubTagsCount);
 	loadTagsFile(&adminTags, "adminTags.txt", &adminTagsCount);
 
 	debugf(("Done !\n"));
-
 	debugf(("Sending logs..."));
 	fflush(stdout);
 
-	sprintf(str, "python3 ../sendLogFile.py");
+	sprintf(str, "python3 %ssendLogFile.py", pythonScriptsDirectory);
 	runScript(str, result);
 
 	debugf(("Done !\n"));
@@ -622,7 +631,8 @@ int updateProgramData(){
 	unlockSystem();
 
 	pthread_mutex_unlock(&updateLocker);
-
+	debugf(("Update complete"));	
+	return 1;
 
 }
 void runScript(char* command, char* result){
@@ -636,7 +646,6 @@ void runScript(char* command, char* result){
 
 void* getCorrespondingCallback(int pin){
 
-//void (*callb)(void*) = (void (*)(void*)) pcallb;
 
 	switch(pin){
 		case 0:
