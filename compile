@@ -2,6 +2,6 @@
 
 echo "Compiling..."
 
-gcc -lrt -lm -lwiringPi -lconfig -g -O -o accessControl main.c
+gcc -lpthread -lrt -lm -lwiringPi -lconfig -g -O -o accessControl main.c
 
 echo "Done !"
