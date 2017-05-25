@@ -26,15 +26,104 @@ buzzerPin -> PIN where the buzzer command is wired
 buzzerTime - > time (in ms) during which the buzzer will keep buzzing
 */
 
-readers = ({name = "Porte principale";
-		GPIO_0 = 4;
-		GPIO_1 = 17;
-		zone = 1;
-		doorPin = 2;
-		doorTime = 3000;
-		ledPin = 10;
-		ledTime = 2000;
-		buzzerPin = 18;
-		buzzerTime = 2000;})
+readers = (
+    {
+        name = "Porte 1";
+        GPIO_0 = 2;
+        GPIO_1 = 3;
+        zone = 1;
+        doorPin = 0;
+        doorTime = 3000;
+        ledPin = 8;
+        ledTime = 2000;
+        buzzerPin = 16;
+        buzzerTime = 2000;
+    },
+    {
+        name = "Porte 2";
+        GPIO_0 = 7;
+        GPIO_1 = 9;
+        zone = 1;
+        doorPin = 1;
+        doorTime = 3000;
+        ledPin = 9;
+        ledTime = 2000;
+        buzzerPin = 17;
+        buzzerTime = 2000;
+    },
+    {
+        name = "Porte 3";
+        GPIO_0 = 4;
+        GPIO_1 = 17;
+        zone = 1;
+        doorPin = 2;
+        doorTime = 3000;
+        ledPin = 10;
+        ledTime = 2000;
+        buzzerPin = 18;
+        buzzerTime = 2000;
+    },
+    {
+        name = "Porte 4";
+        GPIO_0 = 18;
+        GPIO_1 = 27;
+        zone = 1;
+        doorPin = 3;
+        doorTime = 3000;
+        ledPin = 11;
+        ledTime = 2000;
+        buzzerPin = 19;
+        buzzerTime = 2000;
+    },
+    {
+        name = "Porte 5";
+        GPIO_0 = 22;
+        GPIO_1 = 23;
+        zone = 1;
+        doorPin = 4;
+        doorTime = 3000;
+        ledPin = 12;
+        ledTime = 2000;
+        buzzerPin = 20;
+        buzzerTime = 2000;
+    },
+    {
+        name = "Porte 6";
+        GPIO_0 = 24;
+        GPIO_1 = 25;
+        zone = 1;
+        doorPin = 5;
+        doorTime = 3000;
+        ledPin = 13;
+        ledTime = 2000;
+        buzzerPin = 21;
+        buzzerTime = 2000;
+    },
+    {
+        name = "Porte 7";
+        GPIO_0 = 28;
+        GPIO_1 = 29;
+        zone = 1;
+        doorPin = 6;
+        doorTime = 3000;
+        ledPin = 14;
+        ledTime = 2000;
+        buzzerPin = 22;
+        buzzerTime = 2000;
+    },
+    {
+        name = "Porte 8";
+        GPIO_0 = 30;
+        GPIO_1 = 31;
+        zone = 1;
+        doorPin = 7;
+        doorTime = 3000;
+        ledPin = 15;
+        ledTime = 2000;
+        buzzerPin = 23;
+        buzzerTime = 2000;
+    }
+      
+)
 
 

@@ -22,8 +22,8 @@
 
 int pins[PINS_COUNT] = {PIN_0, 
 		PIN_1, 
-		UNUSABLE_PIN, 
-		UNUSABLE_PIN,  
+		PIN_2, 
+		PIN_3,  
 		PIN_4, 
 		UNUSABLE_PIN, 
 		UNUSABLE_PIN, 
@@ -45,7 +45,13 @@ int pins[PINS_COUNT] = {PIN_0,
 		PIN_22, 
 		PIN_23, 
 		PIN_24, 
-		PIN_25};
+		PIN_25,
+		UNUSABLE_PIN,
+        PIN_27,
+        PIN_28,
+        PIN_29,
+        PIN_30,
+        PIN_31};
 
 //Necessary global variables for the program behaviour
 char values[PINS_COUNT] = {};
@@ -631,7 +637,7 @@ int updateProgramData(){
 	unlockSystem();
 
 	pthread_mutex_unlock(&updateLocker);
-	debugf(("Update complete"));	
+	debugf(("Update complete\n"));	
 	return 1;
 
 }
@@ -652,6 +658,10 @@ void* getCorrespondingCallback(int pin){
 			return callback0; break;
 		case 1:
 			return callback1; break;
+		case 2:
+			return callback2; break;
+		case 3:
+			return callback3; break;
 		case 4:
 			return callback4; break;
 		case 7:
@@ -682,6 +692,16 @@ void* getCorrespondingCallback(int pin){
 			return callback24; break;
 		case 25:
 			return callback25; break;
+        case 27:
+            return callback27; break;
+        case 28:
+            return callback28; break;
+        case 29:
+            return callback29; break;
+        case 30:
+            return callback30; break;
+        case 31:
+            return callback31; break;
 		default:
 			return NULL; break;
 	}

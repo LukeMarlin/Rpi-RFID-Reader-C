@@ -113,6 +113,8 @@ int isTimedOut(struct timespec start, struct timespec end){
 
 void callback0(){handler(PIN_0);}
 void callback1(){handler(PIN_1);}
+void callback2(){handler(PIN_2);}
+void callback3(){handler(PIN_3);}
 void callback4(){handler(PIN_4);}
 void callback7(){handler(PIN_7);}
 void callback8(){handler(PIN_8);}
@@ -128,3 +130,11 @@ void callback22() {handler(PIN_22);}
 void callback23() {handler(PIN_23);}
 void callback24() {handler(PIN_24);}
 void callback25() {handler(PIN_25);}
+void callback27() {handler(PIN_27);}
+void callback28() {handler(PIN_28);}
+void callback29() {handler(PIN_29);}
+void callback30() {handler(PIN_30);}
+void callback31() {handler(PIN_31);}
+
+
+
