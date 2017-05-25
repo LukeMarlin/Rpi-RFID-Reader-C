@@ -1,9 +1,9 @@
 void handler(int PIN_ID){
-	
+
 	if(isSystemLocked){
 		return;
 	}
-	
+
 	//Getting the reader associated to the PIN that raised the event
 	CardReader* reader = readers[PIN_ID];
 
@@ -22,7 +22,7 @@ void handler(int PIN_ID){
 		reader->bitCount++;
 	}
 	//Buffer not empty
-	else{ 
+	else{
 		//Last bit is outdated = corrupted buffer
 		if(isTimedOut(reader->lastUpdated, newTime)){
 			//printf("Buffer size %d \n", reader->bitCount);
@@ -31,11 +31,11 @@ void handler(int PIN_ID){
 			reader->lastUpdated = newTime;
 		}
 		//End of frame
-		else if(reader->bitCount == FRAME_SIZE-1) { 
+		else if(reader->bitCount == FRAME_SIZE-1) {
 			reader->tag[reader->bitCount] = values[PIN_ID];
 			reader->bitCount++;
 			if(parityCheck(&reader->tag)){
-				long tagValue = getIntFromTag(reader->tag);	
+				long tagValue = getIntFromTag(reader->tag);
 				int isAccepted;
 				debugf(("[%s] Parity check with %d bits succeeded: %s, value = %ld => ", reader->name, reader->bitCount, reader->tag, tagValue));
 				if(!reader->isOpening == 1){
@@ -45,12 +45,12 @@ void handler(int PIN_ID){
 						pthread_attr_t attr;
 						pthread_attr_init(&attr);
 						pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-					
+
 						int error = 1;
 
 						debugf(("Authorized !\n"));
 
-						error = pthread_create(&thread, &attr, &grantAccess, readers[PIN_ID]); 	
+						error = pthread_create(&thread, &attr, &grantAccess, readers[PIN_ID]);
 						if(error!=0)
 							debugf(("error: %d", error));
 					}
@@ -60,12 +60,12 @@ void handler(int PIN_ID){
 						pthread_attr_t attr;
 						pthread_attr_init(&attr);
 						pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-					
+
 						int error = 1;
-				
+
 						debugf(("Refused !\n"));
 
-						error = pthread_create(&thread, &attr, &refuseAccess, readers[PIN_ID]); 	
+						error = pthread_create(&thread, &attr, &refuseAccess, readers[PIN_ID]);
 						if(error!=0)
 							debugf(("error: %d", error));
 					}
@@ -75,7 +75,7 @@ void handler(int PIN_ID){
 
 					debugf(("Reader already in use\n"));
 				}
-				
+
 				createLogEntry(reader->name, tagValue, isAccepted);
 
 			}
@@ -92,7 +92,7 @@ void handler(int PIN_ID){
 		}
 	}
 
-	pthread_mutex_unlock(&reader->lockObj);	
+	pthread_mutex_unlock(&reader->lockObj);
 }
 
 
@@ -100,7 +100,7 @@ void handler(int PIN_ID){
 int isTimedOut(struct timespec start, struct timespec end){
 	long int secDelta = end.tv_sec - start.tv_sec;
 	long int nsecDelta = end.tv_nsec - start.tv_nsec;
-	
+
 	if(secDelta == 0){
 		if(nsecDelta < BIT_TIMEOUT  )	return 0;
 	}

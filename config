@@ -123,7 +123,7 @@ readers = (
         buzzerPin = 23;
         buzzerTime = 2000;
     }
-      
+
 )
 
 

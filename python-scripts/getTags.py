@@ -44,26 +44,26 @@ if baseVersion == 0 or baseVersion != DBTagsVersionNumber:
 		temp = Password + word + Password
 		h.update(temp.encode('utf-8'))
 		return h.hexdigest()
-	
+
 	conn.request("GET", ChallengeWordPage)
 	r1 = conn.getresponse()
-	
+
 	#If return code is 200, the page was correctly loaded
 	if r1.status is 200:
 		data1 = r1.read()  # This will return entire content.
-	
+
 		try:
 			table = json.loads(data1.decode("utf-8")) #Convert data in string and decode JSON
 		except ValueError:
 			#print("Failed to decode json: " + data1)
 			sys.exit(4)
 		key = saltAndHash(table['mot'])
-	
-		
+
+
 		#Second request with key to get the RFID tag list
 		conn.request("GET", GetListPage + key)
 		r2 = conn.getresponse()
-	
+
 		#Return code 200 = OK
 		if r2.status is 200:
 			data2 = r2.read()
@@ -72,7 +72,7 @@ if baseVersion == 0 or baseVersion != DBTagsVersionNumber:
 			except ValueError:
 				#print("Failed to decode json: " + data1)
 				sys.exit(3)
-			
+
 			#Write each user tag in file
 			try:
 				f = open(userTagsFile,'w')
@@ -92,7 +92,7 @@ if baseVersion == 0 or baseVersion != DBTagsVersionNumber:
 			for tag in RFIDtable[clubJSONid]:
 				f.write(str(tag) + '\n')
 			f.close()
-			
+
 			#Write each admin tag in file
 			try:
 				f = open(adminTagsFile,'w')
@@ -103,7 +103,7 @@ if baseVersion == 0 or baseVersion != DBTagsVersionNumber:
 				f.write(str(tag) + '\n')
 			f.close()
 
-	
+
 		else:
 			sys.exit(1)
 			#print("Failed to get the RFID tag list")
