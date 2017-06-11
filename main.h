@@ -1,4 +1,4 @@
-#define PINS_COUNT 26
+#define PINS_COUNT 32
 #define FRAME_SIZE 26
 #define MIDDLE_FRAME 13
 #define READERS_COUNT_MAX 8

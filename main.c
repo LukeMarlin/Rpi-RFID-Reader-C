@@ -13,39 +13,45 @@
 #include "main.h"
 #include "pins.c"
 
-#define debug_mode 1
+#define debug_mode 0
 #if debug_mode
 	#define debugf(a) (void)0
 #else
 	#define debugf(a) printf a
 #endif
 
-int pins[PINS_COUNT] = {PIN_0, 
-		PIN_1, 
-		UNUSABLE_PIN, 
-		UNUSABLE_PIN,  
-		PIN_4, 
-		UNUSABLE_PIN, 
-		UNUSABLE_PIN, 
-		PIN_7, 
-		PIN_8, 
-		PIN_9, 
-		PIN_10, 
-		PIN_11, 
+int pins[PINS_COUNT] = {PIN_0,
+		PIN_1,
+		PIN_2,
+		PIN_3,
+		PIN_4,
 		UNUSABLE_PIN,
 		UNUSABLE_PIN,
-		PIN_14, 
-		PIN_15, 
+		PIN_7,
+		PIN_8,
+		PIN_9,
+		PIN_10,
+		PIN_11,
 		UNUSABLE_PIN,
-		PIN_17, 
+		UNUSABLE_PIN,
+		PIN_14,
+		PIN_15,
+		UNUSABLE_PIN,
+		PIN_17,
 		PIN_18,
 		UNUSABLE_PIN,
 		UNUSABLE_PIN,
-		PIN_21, 
-		PIN_22, 
-		PIN_23, 
-		PIN_24, 
-		PIN_25};
+		PIN_21,
+		PIN_22,
+		PIN_23,
+		PIN_24,
+		PIN_25,
+		UNUSABLE_PIN,
+        PIN_27,
+        PIN_28,
+        PIN_29,
+        PIN_30,
+        PIN_31};
 
 //Necessary global variables for the program behaviour
 char values[PINS_COUNT] = {};
@@ -62,9 +68,10 @@ pthread_mutex_t updateLocker = PTHREAD_MUTEX_INITIALIZER;
 int isSystemLocked = 0;
 FILE* logFile;
 int DBTagsVersionNumber = 0;
-int updateDelay = 600; //time to reload tags base and send logs (in seconds)
+int updateDelay = 610; //time to reload tags base and send logs (in seconds)
 int bipCount = 7;
 const char* logFilePath = "logFile.txt";
+const char* pythonScriptsDirectory;
 const char* errFilePath = "/var/log/accessControl";
 FILE* errFile;
 
@@ -85,12 +92,12 @@ CardReader* _readers;
 
 
 int main(void) {
-	
+
 	initProgram();
 	signal(SIGUSR1, signalHandler);
-	digitalWrite(PIN_LATCH, LOW);	
+	digitalWrite(PIN_LATCH, LOW);
 	shiftOut(PIN_DATA, PIN_CLOCK, MSBFIRST, 0);
-	digitalWrite(PIN_LATCH, HIGH);	
+	digitalWrite(PIN_LATCH, HIGH);
 	// Waste time but not CPU
 	for (;;) {
 		sleep(1);
@@ -127,11 +134,14 @@ int loadConfig(){
 	//Loading delay value between each update of tags and logs
 	if(!config_lookup_int(&cfg, "updateDelay", &updateDelay))
 		logErr("No 'updateDelay' setting in configuration file.");
-	
+
 	//Loading the log file path
 	if(!config_lookup_string(&cfg, "logFilePath", &logFilePath))
 		logErr("No 'logFilePath' setting in configuration file.");
 
+	//Loading python scripts directory
+	if(!config_lookup_string(&cfg, "pythonScriptsDirectory", &pythonScriptsDirectory))
+		logErr("No 'pythonScriptsDirectory' setting in configuration file.");
 
 	setting = config_lookup(&cfg, "readers");
 
@@ -141,7 +151,7 @@ int loadConfig(){
 
 		for(i = 0; i < count; i++){
 			config_setting_t* reader = config_setting_get_elem(setting, i);
-			
+
 			const char* name;
 			int GPIO_0, GPIO_1, zone;
 			int doorPin, doorTime, ledPin, ledTime, buzzerPin, buzzerTime;
@@ -179,13 +189,14 @@ int loadConfig(){
 
 void initProgram(){
 	wiringPiSetupGpio();
-	readers = (CardReader**)malloc(sizeof(CardReader*)*PINS_COUNT);	
+	readers = (CardReader**)malloc(sizeof(CardReader*)*PINS_COUNT);
 	logFile = fopen(logFilePath, "a");
 	errFile = fopen(errFilePath, "a");
 
 	loadConfig();
+
 	pinMode(PIN_LATCH, OUTPUT);
-	digitalWrite(PIN_LATCH, HIGH);	
+	digitalWrite(PIN_LATCH, HIGH);
 	pinMode(PIN_DATA, OUTPUT);
 	digitalWrite(PIN_DATA, LOW);
 	pinMode(PIN_CLOCK, OUTPUT);
@@ -193,7 +204,14 @@ void initProgram(){
 
 	initReaders();
 	pthread_t bgThread;
-	pthread_create(&bgThread, NULL, &backgroundUpdater, NULL);
+
+	pthread_attr_t attr1;
+
+	pthread_attr_init(&attr1);
+
+	pthread_attr_setdetachstate(&attr1, PTHREAD_CREATE_DETACHED);
+
+	pthread_create(&bgThread, &attr1, &backgroundUpdater, NULL);
 }
 
 //Here we create the readers. You must adjust the values in the config file according to your wiring and your desired behaviour
@@ -204,7 +222,7 @@ void initReaders(){
 
 void createCardReader(const char* pname, int pGPIO_0, int pGPIO_1, int zone, double doorPin, double doorTime, double ledPin, double ledTime, double buzzerPin, double buzzerTime, void(*callback0), void(*callback1)){
 	CardReader* temp = malloc(sizeof(CardReader));
-	
+
 	temp->name = pname;
 	temp->GPIO_0 = pGPIO_0;
 	temp->GPIO_1 = pGPIO_1;
@@ -220,11 +238,11 @@ void createCardReader(const char* pname, int pGPIO_0, int pGPIO_1, int zone, dou
 	temp->buzzer = buzzerPin;
 	temp->buzzerTime = buzzerTime;
 	pthread_mutex_init(&temp->lockObj, NULL);
-	
+
 	// Set pin to input in case it's not
 	pinMode(pGPIO_0, INPUT);
 	pinMode(pGPIO_1, INPUT);
-	
+
 	pullUpDnControl(pGPIO_0, PUD_UP);
 	pullUpDnControl(pGPIO_1, PUD_UP);
 
@@ -257,7 +275,7 @@ int parityCheck(char** tag){
 	for(i; i<=MIDDLE_FRAME-1; i++){
 		if(temp[i] == '1')	bitsTo1++;
 	}
-		
+
 	if(bitsTo1%2 != 0)	return 0;
 
 	bitsTo1 = 0;
@@ -315,9 +333,10 @@ int loadTagsFile(long** tagsArray, char* filePath, int* tagCounter){
 	*tagsArray = array;
 	free(buffer);
 	fclose(tagsFile);
-	
+
 	return 1;
 	}
+
 }
 
 //Check if the tag can open the door according to it's presence
@@ -325,7 +344,7 @@ int loadTagsFile(long** tagsArray, char* filePath, int* tagCounter){
 int checkAuthorization(long* tag, CardReader* reader){
 	int i;
 
-	if(reader->zone == 1){		
+	if(reader->zone == 1){
 		for(i=0;i<userTagsCount; i++){
 			if(userTags[i] == *tag && areCourtsOpened()) return 1;
 		}
@@ -345,7 +364,7 @@ int areCourtsOpened(){
 	time(&currentTimeStamp);
 	struct tm* currentTime;
 	currentTime = gmtime(&currentTimeStamp);
-	
+
 	if(currentTime->tm_hour*60 + currentTime->tm_min >= openingHour*60 +openingMinute
 	   && currentTime->tm_hour*60 + currentTime->tm_min <= closingHour*60 + closingMinute)
 		return 1;
@@ -364,9 +383,9 @@ void* refuseAccess(void* reader){
 	for(callCount = 0; callCount < bipCount; callCount++){
 		ledValues = (double*)malloc(sizeof(double)*3);
 		ledValues[0] = tempReader->led;
-		ledValues[1] = 100;	
+		ledValues[1] = 100;
 		ledValues[2] = -1;
-	
+
 		updateOutput((void*)ledValues);
 
 		buzzerValues = (double*)malloc(sizeof(double)*3);
@@ -385,10 +404,10 @@ void* refuseAccess(void* reader){
 void* grantAccess(void* reader)
 {
 	CardReader* tempReader = (CardReader*)reader;
-	
+
 	tempReader->isOpening = 1;
 	debugf(("Opening %s...\n", tempReader->name));
-	
+
 	pthread_t thread1;
 	pthread_attr_t attr1;
 	pthread_t thread2;
@@ -403,13 +422,13 @@ void* grantAccess(void* reader)
 	pthread_attr_setdetachstate(&attr1, PTHREAD_CREATE_DETACHED);
 	pthread_attr_setdetachstate(&attr2, PTHREAD_CREATE_DETACHED);
 	pthread_attr_setdetachstate(&attr3, PTHREAD_CREATE_DETACHED);
-	
+
 	int longest = tempReader->doorTime;
 	if(tempReader->buzzerTime > longest)
 		longest = tempReader->buzzerTime;
 	else if(tempReader->ledTime >longest)
 		longest = tempReader->ledTime;
-	
+
 	double* doorValues = (double*)malloc(sizeof(double)*3);
 	doorValues[0] = tempReader->door;
 	doorValues[1] = tempReader->doorTime;
@@ -423,16 +442,15 @@ void* grantAccess(void* reader)
 	buzzerValues[1] = tempReader->buzzerTime;
 	buzzerValues[2] = -1;
 
-	pthread_create(&thread1, &attr1, &updateOutput, (void*)doorValues);		
+	pthread_create(&thread1, &attr1, &updateOutput, (void*)doorValues);
 	pthread_create(&thread2, &attr2, &updateOutput, (void*)ledValues);
 	pthread_create(&thread3, &attr3, &updateOutput, (void*)buzzerValues);
-	
+
 	usleep((int)(longest*1000));
 	pthread_attr_destroy(&attr1);
 	pthread_attr_destroy(&attr2);
 	pthread_attr_destroy(&attr3);
 	tempReader->isOpening = 0;
-	
 }
 
 void* updateOutput(void* values)
@@ -446,7 +464,7 @@ void* updateOutput(void* values)
 	if(params[2] !=-1)
 		changeValue += (long)pow(2, params[1]);
 	shiftRegisterValue += changeValue;
-	
+
 	uint8_t firstRegister = (uint8_t)(shiftRegisterValue >> 16);
 	uint8_t secondRegister = (uint8_t)(shiftRegisterValue >> 8);
 	uint8_t thirdRegister = (uint8_t)shiftRegisterValue;
@@ -454,10 +472,10 @@ void* updateOutput(void* values)
 	shiftOut(PIN_DATA, PIN_CLOCK, MSBFIRST, firstRegister);
 	shiftOut(PIN_DATA, PIN_CLOCK, MSBFIRST, secondRegister);
 	shiftOut(PIN_DATA, PIN_CLOCK, MSBFIRST, thirdRegister);
-	
+
 	digitalWrite(PIN_LATCH, HIGH);
 	pthread_mutex_unlock(&locker);
-	
+
 	usleep((int)(params[1]*1000));
 
 	pthread_mutex_lock(&locker);
@@ -503,7 +521,7 @@ void unlockSystem(){
 void* blinkReader(void* reader){
 	double* values = (double*)malloc(sizeof(double)*3);
 	CardReader* tempReader = (CardReader*)reader;
-	
+
 	pthread_t blinkThread;
 	pthread_attr_t attr;
 	pthread_attr_init(&attr);
@@ -521,16 +539,16 @@ void* blinkReaders(void* param){
 	long changeValue = 0;
 
 	for(i=0; i<READERS_COUNT; i++){
-		changeValue += (long)pow(2, _readers[i].led);	
+		changeValue += (long)pow(2, _readers[i].led);
 	}
 
-	while(isSystemLocked == 1){			
-		
+	while(isSystemLocked == 1){
+
 		pthread_mutex_lock(&locker);
 		digitalWrite(PIN_LATCH, LOW);
 
 		shiftRegisterValue += changeValue;
-	
+
 		uint8_t firstRegister = (uint8_t)(shiftRegisterValue >> 16);
 		uint8_t secondRegister = (uint8_t)(shiftRegisterValue >> 8);
 		uint8_t thirdRegister = (uint8_t)shiftRegisterValue;
@@ -540,9 +558,9 @@ void* blinkReaders(void* param){
 		shiftOut(PIN_DATA, PIN_CLOCK, MSBFIRST, thirdRegister);
 		digitalWrite(PIN_LATCH, HIGH);
 		pthread_mutex_unlock(&locker);
-	
+
 		usleep((int)(250*1000));
-		
+
 		pthread_mutex_lock(&locker);
 		digitalWrite(PIN_LATCH, LOW);
 
@@ -554,18 +572,18 @@ void* blinkReaders(void* param){
 		shiftOut(PIN_DATA, PIN_CLOCK, MSBFIRST, firstRegister);
 		shiftOut(PIN_DATA, PIN_CLOCK, MSBFIRST, secondRegister);
 		shiftOut(PIN_DATA, PIN_CLOCK, MSBFIRST, thirdRegister);
-	
+
 		digitalWrite(PIN_LATCH, HIGH);
 		pthread_mutex_unlock(&locker);
-		
-		usleep(250*1000);	
+
+		usleep(250*1000);
 	}
-	
+
 }
 
 void createLogEntry(const char* readerName, long tagNumber, int isAccepted){
 	//Checks if the file is correctly opened
-//	if(!logFile == NULL){
+	//if(!logFile == NULL){
 
 		time_t currentTimeStamp;
 		time(&currentTimeStamp);
@@ -573,47 +591,44 @@ void createLogEntry(const char* readerName, long tagNumber, int isAccepted){
 		currentTime = gmtime(&currentTimeStamp);
 
 		//Writes the line at the end of the file
-		fprintf(logFile, "%d-%d-%d %d:%d:%d,%s,%ld,%d;", currentTime->tm_year + 1900, currentTime->tm_mon+1, currentTime->tm_mday, 
+		fprintf(logFile, "%d-%d-%d %d:%d:%d,%s,%ld,%d;", currentTime->tm_year + 1900, currentTime->tm_mon+1, currentTime->tm_mday,
 			currentTime->tm_hour, currentTime->tm_min, currentTime->tm_sec, readerName, tagNumber, isAccepted);
 		fflush(logFile);
-//	}	
+	//}
 }
 
 void* backgroundUpdater(void* param){
 	for(;;){
 		updateProgramData();
+		int updateDelay = 3000;
 		sleep(updateDelay);
+
 	}
 }
 
 int updateProgramData(){
-
 	pthread_mutex_lock(&updateLocker);
-
 	int oldDBTagsVersionNumber = DBTagsVersionNumber;
 	char str[22];
 	char result[22];
 
 	fclose(logFile);
-	
+
 	debugf(("Downloading tags database..."));
 	fflush(stdout);
-	sprintf(str, "python3 ../getUserTags.py -t %d", oldDBTagsVersionNumber);
+	sprintf(str, "python3 %sgetTags.py -t %d", pythonScriptsDirectory, oldDBTagsVersionNumber);
 	runScript(str, result);
 	DBTagsVersionNumber = strtol(result, NULL, 10);
-	
-	
 	lockSystem();
 	loadTagsFile(&userTags, "userTags.txt", &userTagsCount);
 	loadTagsFile(&clubTags, "clubTags.txt", &clubTagsCount);
 	loadTagsFile(&adminTags, "adminTags.txt", &adminTagsCount);
 
 	debugf(("Done !\n"));
-
 	debugf(("Sending logs..."));
 	fflush(stdout);
 
-	sprintf(str, "python3 ../sendLogFile.py");
+	sprintf(str, "python3 %ssendLogFile.py", pythonScriptsDirectory);
 	runScript(str, result);
 
 	debugf(("Done !\n"));
@@ -622,13 +637,14 @@ int updateProgramData(){
 	unlockSystem();
 
 	pthread_mutex_unlock(&updateLocker);
-
+	debugf(("Update complete\n"));
+	return 1;
 
 }
 void runScript(char* command, char* result){
 	char* data;
 	FILE* stream;
-	
+
 	stream = popen(command, "r");
 	fgets(result, 22, stream);
 	fclose(stream);
@@ -636,13 +652,16 @@ void runScript(char* command, char* result){
 
 void* getCorrespondingCallback(int pin){
 
-//void (*callb)(void*) = (void (*)(void*)) pcallb;
 
 	switch(pin){
 		case 0:
 			return callback0; break;
 		case 1:
 			return callback1; break;
+		case 2:
+			return callback2; break;
+		case 3:
+			return callback3; break;
 		case 4:
 			return callback4; break;
 		case 7:
@@ -673,6 +692,16 @@ void* getCorrespondingCallback(int pin){
 			return callback24; break;
 		case 25:
 			return callback25; break;
+        case 27:
+            return callback27; break;
+        case 28:
+            return callback28; break;
+        case 29:
+            return callback29; break;
+        case 30:
+            return callback30; break;
+        case 31:
+            return callback31; break;
 		default:
 			return NULL; break;
 	}
@@ -685,7 +714,7 @@ if(errFile != NULL){
 	time(&currentTimeStamp);
 	struct tm* currentTime;
 	currentTime = gmtime(&currentTimeStamp);
-	fprintf(errFile, "%d-%d-%d %d:%d:%d: %s\n", currentTime->tm_year + 1900, currentTime->tm_mon+1, currentTime->tm_mday, 
+	fprintf(errFile, "%d-%d-%d %d:%d:%d: %s\n", currentTime->tm_year + 1900, currentTime->tm_mon+1, currentTime->tm_mday,
 			currentTime->tm_hour, currentTime->tm_min, currentTime->tm_sec, error);
 	fflush(errFile);
 	}
