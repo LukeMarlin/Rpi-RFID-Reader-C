@@ -349,9 +349,13 @@ int checkAuthorization(long* tag, CardReader* reader){
 			if(userTags[i] == *tag && areCourtsOpened()) return 1;
 		}
 	}
-	for(i=0;i<clubTagsCount; i++){
-		if(clubTags[i] == *tag && areCourtsOpened()) return 1;
-	}
+
+    if(reader->zone <= 2){
+        for(i=0;i<clubTagsCount; i++){
+            if(clubTags[i] == *tag) return 1;
+        }
+    }
+
 	for(i=0;i<adminTagsCount; i++){
 		if(adminTags[i] == *tag) return 1;
 	}
@@ -600,26 +604,24 @@ void createLogEntry(const char* readerName, long tagNumber, int isAccepted){
 void* backgroundUpdater(void* param){
 	for(;;){
 		updateProgramData();
-		int updateDelay = 3000;
 		sleep(updateDelay);
-
 	}
 }
 
 int updateProgramData(){
 	pthread_mutex_lock(&updateLocker);
 	int oldDBTagsVersionNumber = DBTagsVersionNumber;
-	char str[22];
+	char str[1000];
 	char result[22];
 
 	fclose(logFile);
 
+	lockSystem();
 	debugf(("Downloading tags database..."));
 	fflush(stdout);
 	sprintf(str, "python3 %sgetTags.py -t %d", pythonScriptsDirectory, oldDBTagsVersionNumber);
 	runScript(str, result);
 	DBTagsVersionNumber = strtol(result, NULL, 10);
-	lockSystem();
 	loadTagsFile(&userTags, "userTags.txt", &userTagsCount);
 	loadTagsFile(&clubTags, "clubTags.txt", &clubTagsCount);
 	loadTagsFile(&adminTags, "adminTags.txt", &adminTagsCount);
