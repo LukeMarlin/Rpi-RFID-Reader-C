@@ -56,10 +56,10 @@ int pins[PINS_COUNT] = {PIN_0,
 //Necessary global variables for the program behaviour
 char values[PINS_COUNT] = {};
 long* userTags;
-long* clubTags;
+long* userPlusTags;
 long* adminTags;
 int userTagsCount = 0;
-int clubTagsCount = 0;
+int userPlusTagsCount = 0;
 int adminTagsCount = 0;
 long shiftRegisterValue = 0;
 int READERS_COUNT = 0;
@@ -351,8 +351,8 @@ int checkAuthorization(long* tag, CardReader* reader){
 	}
 
     if(reader->zone <= 2){
-        for(i=0;i<clubTagsCount; i++){
-            if(clubTags[i] == *tag) return 1;
+        for(i=0;i<userPlusTagsCount; i++){
+            if(userPlusTags[i] == *tag) return 1;
         }
     }
 
@@ -623,7 +623,7 @@ int updateProgramData(){
 	runScript(str, result);
 	DBTagsVersionNumber = strtol(result, NULL, 10);
 	loadTagsFile(&userTags, "userTags.txt", &userTagsCount);
-	loadTagsFile(&clubTags, "clubTags.txt", &clubTagsCount);
+	loadTagsFile(&userPlusTags, "userPlusTags.txt", &userPlusTagsCount);
 	loadTagsFile(&adminTags, "adminTags.txt", &adminTagsCount);
 
 	debugf(("Done !\n"));
