@@ -1,0 +1,10 @@
+apt-get install wiringpi
+apt-get install libconfig-dev
+apt-get install python3
+apt-get install python3-pip
+pip3 install pymssql
+./compile
+-> configure your readers in "config" file
+export tcpdblogin = <login>
+export tcpdbpassword = <password>
+./accessControl
