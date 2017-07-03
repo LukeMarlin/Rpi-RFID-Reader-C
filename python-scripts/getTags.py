@@ -27,7 +27,7 @@ try:
     with pymssql.connect(server="213.246.49.130", user=login, password=password, database="tcp_db") as conn:
         cur = conn.cursor()
         cur.execute("select versionNumber from AuthorizedTagsVersion")
-        new_version = cur.next()[0]
+        new_version = cur.fetchone()[0]
 
         if baseVersion == new_version:
             sys.exit(0)

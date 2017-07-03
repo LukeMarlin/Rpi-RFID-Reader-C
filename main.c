@@ -523,7 +523,6 @@ void unlockSystem(){
 }
 
 void* blinkReader(void* reader){
-	double* values = (double*)malloc(sizeof(double)*3);
 	CardReader* tempReader = (CardReader*)reader;
 
 	pthread_t blinkThread;
@@ -531,11 +530,7 @@ void* blinkReader(void* reader){
 	pthread_attr_init(&attr);
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 
-	values[0] = tempReader->led;
-	values[1] = 300;
-	values[2] = 0;
-
-	pthread_create(&blinkThread, &attr, &updateOutput, (double*)values);
+	pthread_create(&blinkThread, &attr, &updateOutput, NULL);
 }
 
 void* blinkReaders(void* param){
