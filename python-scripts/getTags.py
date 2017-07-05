@@ -32,10 +32,11 @@ try:
         if baseVersion == new_version:
             sys.exit(0)
 
-        cur.execute("""select b.number, c.Category_ID from BadgeJeu as b
-                        inner join PlayerJeu as p on b.Player_ID = p.ID
-                        inner join PlayerCategory as c on c.Player_ID = p.ID
-                        where b.isEnabled = 1""")
+        cur.execute("""select b.number, p.status_id from BadgeJeu as b
+                        JOIN PlayerJeu as p
+                        On b.player_ID = p.ID
+                        where b.IsEnabled = 1;""")
+
         try:
             with open(userTagsFile, 'w') as userFile, open(userPlusTagsFile, 'w') as userPlusFile, open(adminTagsFile, 'w') as adminFile:
 
