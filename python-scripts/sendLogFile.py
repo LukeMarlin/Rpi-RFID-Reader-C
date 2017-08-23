@@ -9,7 +9,8 @@ logLines = []
 try:
     with open(logFilePath, 'r') as logFile:
         logLines = logFile.read().split(';')
-except:
+except Exception as e:
+    print(e)
     sys.exit(1)
 
 login = ""
@@ -19,6 +20,7 @@ try:
     login = os.environ['tcpdblogin']
     password = os.environ['tcpdbpassword']
 except:
+    print("Cannot retrieve tcpdblogin and tcpdbpassword vars")
     sys.exit(4)
 
 try:
@@ -28,12 +30,15 @@ try:
         for entry in entries:
             cur.callproc("addLogEntry", entry)
         conn.commit()
-except:
+except Exception as e:
+    print(e)
+    print("Can't send data to DB")
     sys.exit(2)
 
 try:
     os.remove(logFilePath)
 except:
+    print("Can't remove logFile")
     sys.exit(3)
 
 sys.exit(0)
