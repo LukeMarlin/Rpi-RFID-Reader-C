@@ -24,7 +24,7 @@ except:
     sys.exit(4)
 
 try:
-    with pymssql.connect(server="213.246.49.130", user=login, password=password, database="tcp_db") as conn:
+    with pymssql.connect(server="213.246.49.109", user=login, password=password, database="tcp_db") as conn:
         cur = conn.cursor()
         entries = [tuple(l.split(',')) for l in logLines if l != '']
         for entry in entries:
