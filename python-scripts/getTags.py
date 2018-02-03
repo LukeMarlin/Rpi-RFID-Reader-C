@@ -24,7 +24,7 @@ except:
 
 
 try:
-    with pymssql.connect(server="213.246.49.130", user=login, password=password, database="tcp_db") as conn:
+    with pymssql.connect(server="213.246.49.109", user=login, password=password, database="tcp_db") as conn:
         cur = conn.cursor()
         cur.execute("select versionNumber from AuthorizedTagsVersion")
         new_version = cur.fetchone()[0]
